@@ -1,0 +1,1 @@
+Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.

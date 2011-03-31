@@ -38,6 +38,7 @@ var Typo = function (dictionary, affData, wordsData) {
 	this.platform = "chrome";
 	
 	this.dictionary = null;
+	
 	this.rules = {};
 	this.dictionaryTable = {};
 	
@@ -78,13 +79,19 @@ Typo.prototype = {
 	 * Read the contents of a file.
 	 * 
 	 * @param {String} path The path (relative) to the file.
+	 * @param {String} [charset="ISO8859-1"] The expected charset of the file
 	 * @returns string The file data.
 	 */
 	
-	_readFile : function (path) {
+	_readFile : function (path, charset) {
+		if (!charset) charset = "ISO8859-1";
+		
 		var req = new XMLHttpRequest();
 		req.open("GET", path, false);
+		req.overrideMimeType("text/plain; charset=" + charset);
 		req.send(null);
+		
+		console.log(req.responseText);
 		
 		return req.responseText;
 	},

@@ -17,3 +17,8 @@ You can choose the backend implementation by setting dictionary.implementation i
 * binarysearch
 
 	Stores the dictionary words in a series of strings and uses binary search to check whether a word exists in the dictionary. It uses less memory than the hash implementation, but lookups are slower.
+	
+Licensing
+=========
+
+Typo.js is free software, licensed under the Modified BSD License.

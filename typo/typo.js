@@ -395,12 +395,14 @@ Typo.prototype = {
 	/**
 	 * Checks whether a word exists in the current dictionary.
 	 *
+	 * @see http://blog.stevenlevithan.com/archives/faster-trim-javascript re:trimming function
+	 *
 	 * @param {String} word The word to check.
 	 * @returns {Boolean}
 	 */
 	
 	check : function (word) {
-		word = word.toLowerCase();
+		word = word.toLowerCase().replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 		
 		if (this.implementation == "binarysearch") {
 			return this._checkBinaryString(word);

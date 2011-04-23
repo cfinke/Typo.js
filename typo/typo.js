@@ -91,8 +91,6 @@ Typo.prototype = {
 		req.overrideMimeType("text/plain; charset=" + charset);
 		req.send(null);
 		
-		console.log(req.responseText);
-		
 		return req.responseText;
 	},
 	

@@ -1,0 +1,120 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
+		<script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+		<script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
+		<script type="text/javascript" src="../typo/typo.js"></script>
+		<script type="text/javascript">
+			function run() {
+				var empty_dict = new Typo();
+				
+				test("Dictionary instantiated without arguments is essentially empty.", function () {
+					deepEqual(empty_dict.rules, {});
+					deepEqual(empty_dict.dictionaryTable, {});
+					deepEqual(empty_dict.dictionary, null);
+				});
+				
+				var utilityDict = new Typo();
+				utilityDict.dictionary = "en_US";
+				
+				var affData = utilityDict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
+				var wordData = utilityDict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+				
+				var dict = new Typo("en_US", affData, wordData);
+				
+				test("Dictionary object attributes are properly set", function () {
+					equal(dict.dictionary, "en_US");
+				});
+				
+				test("Correct checking of words with no affixes", function () {
+					equal(dict.check("a"), true);
+					equal(dict.check("aback"), true);
+					equal(dict.check("juicily"), true);
+					equal(dict.check("palmate"), true);
+					equal(dict.check("palpable"), true);
+				});
+				
+				test("Correct checking of root words with single affixes (affixes not used)", function () {
+					equal(dict.check("paling"), true);
+					equal(dict.check("arrangeable"), true);
+					equal(dict.check("arrant"), true);
+					equal(dict.check("swabby"), true);
+				});
+
+				test("Correct checking of root words with single affixes (affixes used)", function () {
+					equal(dict.check("palmer's"), true);
+					equal(dict.check("uncritically"), true);
+					equal(dict.check("hypersensitiveness"), true);
+					equal(dict.check("illusive"), true);
+				});
+				
+				test("Capitalization is ignored.", function () {
+					equal(dict.check("A"), true);
+					equal(dict.check("AbAcK"), true);
+					equal(dict.check("jUICily"), true);
+					equal(dict.check("PALMATE"), true);
+					equal(dict.check("PALING"), true);
+					equal(dict.check("ARRANGEABLE"), true);
+					equal(dict.check("ARRANT"), true);
+					equal(dict.check("SWABBY"), true);
+				});
+				
+				test("Words not in the dictionary in any form are marked as misspelled.", function () {
+					equal(dict.check("aaraara"), false);
+					equal(dict.check("aaraara"), false);
+					equal(dict.check("aaraara"), false);
+					equal(dict.check("aaraara"), false);
+					equal(dict.check("aaraara"), false);
+				});
+				
+				test("Leading and trailing whitespace is ignored.", function () {
+					equal(dict.check("concept "), true);
+					equal(dict.check(" concept"), true);
+					equal(dict.check("  concept"), true);
+					equal(dict.check("concept  "), true);
+					equal(dict.check("  concept  "), true);
+				});
+
+				test("Compound numbers", function () {
+					equal(dict.check("1st"), true);
+					equal(dict.check("2nd"), true);
+					equal(dict.check("3rd"), true);
+					equal(dict.check("4th"), true);
+					equal(dict.check("5th"), true);
+					equal(dict.check("6th"), true);
+					equal(dict.check("7th"), true);
+					equal(dict.check("8th"), true);
+					equal(dict.check("9th"), true);
+					equal(dict.check("10th"), true);
+					equal(dict.check("11th"), true);
+					equal(dict.check("12th"), true);
+					equal(dict.check("13th"), true);
+					equal(dict.check("1th"), false);
+					equal(dict.check("2rd"), false);
+					equal(dict.check("3th"), false);
+					equal(dict.check("4rd"), false);
+					equal(dict.check("100st"), false);
+				});
+				
+				test("ONLYINCOMPOUND flag is respected", function () {
+					equal(dict.check("1th"), false);
+					equal(dict.check("2th"), false);
+					equal(dict.check("3th"), false);
+				});
+				
+				test("Possessives are properly checked.", function () {
+					equal(dict.check("concept's"), true);
+					// acceptability's is in the dictionary including the 's
+					equal(dict.check("acceptability's's"), false);
+				});
+			}
+		</script>
+	</head>
+	<body onload="run();">
+		<h1 id="qunit-header">Typo.js Test Suite</h1>
+		<h2 id="qunit-banner"></h2>
+		<div id="qunit-testrunner-toolbar"></div>
+		<h2 id="qunit-userAgent"></h2>
+		<ol id="qunit-tests"></ol>
+	</body>
+</html>

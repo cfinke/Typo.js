@@ -83,8 +83,14 @@
 					equal(dict.check("concept  "), true);
 					equal(dict.check("  concept  "), true);
 				});
-
-				test("Compound numbers", function () {
+				
+				test("ONLYINCOMPOUND flag is respected", function () {
+					equal(dict.check("1th"), false);
+					equal(dict.check("2th"), false);
+					equal(dict.check("3th"), false);
+				});
+				
+				test("Compound words", function () {
 					equal(dict.check("1st"), true);
 					equal(dict.check("2nd"), true);
 					equal(dict.check("3rd"), true);
@@ -103,12 +109,6 @@
 					equal(dict.check("3th"), false);
 					equal(dict.check("4rd"), false);
 					equal(dict.check("100st"), false);
-				});
-				
-				test("ONLYINCOMPOUND flag is respected", function () {
-					equal(dict.check("1th"), false);
-					equal(dict.check("2th"), false);
-					equal(dict.check("3th"), false);
 				});
 				
 				test("Possessives are properly checked.", function () {

@@ -44,6 +44,8 @@ var Typo = function (dictionary, affData, wordsData, implementation) {
 	this.dictionaryTable = {};
 	
 	this.compoundRules = [];
+	this.compoundRuleCodes = {};
+	
 	this.flags = {};
 	
 	if (dictionary) {
@@ -55,7 +57,55 @@ var Typo = function (dictionary, affData, wordsData, implementation) {
 		}
 		
 		this.rules = this._parseAFF(affData);
+		
+		// Save the rule codes that are used in compound rules.
+		this.compoundRuleCodes = {};
+		
+		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+			var rule = this.compoundRules[i];
+			
+			for (var j = 0, _jlen = rule.length; j < _jlen; j++) {
+				this.compoundRuleCodes[rule[j]] = [];
+			}
+		}
+		
+		// If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
+		// will do the work of saving the list of words that are compound-only.
+		if ("ONLYINCOMPOUND" in this.flags) {
+			this.compoundRuleCodes[this.flags.ONLYINCOMPOUND] = [];
+		}
+		
 		this.dictionaryTable = this._parseDIC(wordsData);
+		
+		// Get rid of any codes from the compound rule codes that are never used 
+		// (or that were special regex characters).  Not especially necessary... 
+		for (var i in this.compoundRuleCodes) {
+			if (this.compoundRuleCodes[i].length == 0) {
+				delete this.compoundRuleCodes[i];
+			}
+		}
+		
+		// Build the full regular expressions for each compound rule.
+		// I have a feeling (but no confirmation yet) that this method of 
+		// testing for compound words is probably slow.
+		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+			var ruleText = this.compoundRules[i];
+			
+			var expressionText = "";
+			
+			for (var j = 0, _jlen = ruleText.length; j < _jlen; j++) {
+				var character = ruleText[j];
+				
+				if (character in this.compoundRuleCodes) {
+					expressionText += "(" + this.compoundRuleCodes[character].join("|") + ")";
+				}
+				else {
+					expressionText += character;
+				}
+			}
+			
+			this.compoundRules[i] = new RegExp(expressionText, "i");
+		}
 	}
 	
 	return this;
@@ -163,9 +213,6 @@ Typo.prototype = {
 				
 				i += numEntries;
 			}
-			else if (ruleType === "ONLYINCOMPOUND") {
-				this.flags[ruleType] = definitionParts[1];
-			}
 			else if (ruleType === "COMPOUNDRULE") {
 				var numEntries = parseInt(definitionParts[1], 10);
 				
@@ -177,6 +224,11 @@ Typo.prototype = {
 				}
 				
 				i += numEntries;
+			}
+			else {
+				// ONLYINCOMPOUND
+				// COMPOUNDMIN
+				this.flags[ruleType] = definitionParts[1];
 			}
 		}
 		
@@ -255,6 +307,10 @@ Typo.prototype = {
 							}
 						}
 					}
+					
+					if (code in this.compoundRuleCodes) {
+						this.compoundRuleCodes[code].push(word);
+					}
 				}
 			}
 			else {
@@ -297,9 +353,9 @@ Typo.prototype = {
 				for (var j = 0, _jlen = ruleCodes.length; j < _jlen; j++) {
 					var code = ruleCodes[j];
 					
-					if (code in this.rules) {
-						var rule = this.rules[code];
-						
+					var rule = this.rules[code];
+					
+					if (rule) {
 						var newWord = this._applyRule(word, rule);
 						
 						if (newWord) {
@@ -325,6 +381,10 @@ Typo.prototype = {
 								}
 							}
 						}
+					}
+					
+					if (code in this.compoundRuleCodes) {
+						this.compoundRuleCodes[code].push(word);
 					}
 				}
 			}
@@ -401,14 +461,34 @@ Typo.prototype = {
 	 */
 	
 	check : function (word) {
+		var rv = false;
+		
 		word = word.toLowerCase().replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 		
 		if (this.implementation == "binarysearch") {
-			return this._checkBinaryString(word);
+			rv = this._checkBinaryString(word);
+			
+			if (!rv) {
+				if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
+					for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+						if (word.match(this.compoundRules[i])) {
+							rv = true;
+							break;
+						}
+					}
+				}
+			}
+			else {
+				if ("ONLYINCOMPOUND" in this.flags && this.compoundRuleCodes[this.flags.ONLYINCOMPOUND].indexOf(word) !== -1) {
+					rv = false;
+				}
+			}
 		}
 		else {
-			return this._checkHash(word);
+			rv = this._checkHash(word);
 		}
+		
+		return rv;
 	},
 	
 	/**
@@ -422,6 +502,15 @@ Typo.prototype = {
 		var ruleCodes = this.dictionaryTable[word];
 		
 		if (typeof ruleCodes === 'undefined') {
+			// Check if this might be a compound word.
+			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
+				for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+					if (word.match(this.compoundRules[i])) {
+						return true;
+					}
+				}
+			}
+			
 			return false;
 		}
 		else {

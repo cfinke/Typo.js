@@ -30,8 +30,10 @@
  * @returns {Typo} A Typo object.
  */
 
-var Typo = function (dictionary, affData, wordsData) {
-	this.implementation = "hash";
+var Typo = function (dictionary, affData, wordsData, implementation) {
+	if (!implementation) implementation = "hash";
+	
+	this.implementation = implementation;
 	
 	/** Determines the method used for auto-loading .aff and .dic files. **/
 	this.platform = "chrome";

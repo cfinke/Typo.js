@@ -4,7 +4,7 @@
  *
  * You can choose the backend implementation by setting this.implementation:
  *
- *   - hash: Stores the dictionary words as the keys of a hashand does a key
+ *   - hash: Stores the dictionary words as the keys of a hash and does a key
  *           existence check to determine whether a word is spelled correctly.
  *           Lookups are very fast, but this method uses the most memory.
  * 
@@ -13,7 +13,6 @@
  *                   dictionary. It uses less memory than the hash implementa-
  *                   tion, but lookups are slower.
  *
- * @todo Implement COMPOUNDRULE
  * @todo Implement suggestions.
  */
 
@@ -163,7 +162,7 @@ Typo.prototype = {
 				i += numEntries;
 			}
 			else if (ruleType === "ONLYINCOMPOUND") {
-				this.flags.onlyincompound = definitionParts[1];
+				this.flags[ruleType] = definitionParts[1];
 			}
 			else if (ruleType === "COMPOUNDRULE") {
 				var numEntries = parseInt(definitionParts[1], 10);
@@ -206,8 +205,6 @@ Typo.prototype = {
 	 */
 	
 	_parseDICHash : function (data) {
-		// @todo Support ONLYINCOMPOUND
-		
 		var lines = data.split("\n");
 		var dictionaryTable = {};
 		
@@ -235,7 +232,7 @@ Typo.prototype = {
 						var newWord = this._applyRule(word, rule);
 						
 						if (newWord) {
-							dictionaryTable[newWord] = true;
+							dictionaryTable[newWord] = "";
 							
 							if (rule.combineable) {
 								for (var k = j + 1; k < _jlen; k++) {
@@ -248,7 +245,7 @@ Typo.prototype = {
 											var otherNewWord = this._applyRule(newWord, combineRule);
 											
 											if (otherNewWord) {
-												dictionaryTable[otherNewWord] = true;
+												dictionaryTable[otherNewWord] = "";
 											}
 										}
 									}
@@ -259,7 +256,7 @@ Typo.prototype = {
 				}
 			}
 			else {
-				dictionaryTable[word] = true;
+				dictionaryTable[word] = "";
 			}
 		}
 		
@@ -420,7 +417,18 @@ Typo.prototype = {
 	 */
 	
 	_checkHash : function (word) {
-		return (word in this.dictionaryTable);
+		var ruleCodes = this.dictionaryTable[word];
+		
+		if (typeof ruleCodes === 'undefined') {
+			return false;
+		}
+		else {
+			if ("ONLYINCOMPOUND" in this.flags && ruleCodes.indexOf(this.flags.ONLYINCOMPOUND) != -1) {
+				return false;
+			}
+			
+			return true;
+		}
 	},
 	
 	/**

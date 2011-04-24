@@ -17,7 +17,9 @@ You can choose the backend implementation by setting dictionary.implementation i
 * binarysearch
 
 	Stores the dictionary words in a series of strings and uses binary search to check whether a word exists in the dictionary. It uses less memory than the hash implementation, but lookups are slower.
-	
+
+_Note: The manifest.json file in the root directory of the project is there to simplify testing, as it allows you to load all of the files in the Typo project as a Chrome extension. It doesn't have any purpose if you're using Typo.js in your own project._
+
 Licensing
 =========
 

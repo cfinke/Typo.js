@@ -20,8 +20,17 @@
 				var affData = utilityDict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
 				var wordData = utilityDict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
 				
-				var dict = new Typo("en_US", affData, wordData);
+				var hashDict = new Typo("en_US", affData, wordData, "hash");
+				var binaryDict = new Typo("en_US", affData, wordData, "binarysearch");
 				
+				module("Hash implementation");
+				testDictionary(hashDict);
+				
+				module("Binary search implementation");
+				testDictionary(binaryDict);
+			}
+			
+			function testDictionary(dict) {
 				test("Dictionary object attributes are properly set", function () {
 					equal(dict.dictionary, "en_US");
 				});
@@ -108,6 +117,7 @@
 					equal(dict.check("acceptability's's"), false);
 				});
 			}
+				
 		</script>
 	</head>
 	<body onload="run();">

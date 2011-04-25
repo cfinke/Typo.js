@@ -228,6 +228,8 @@ Typo.prototype = {
 			else {
 				// ONLYINCOMPOUND
 				// COMPOUNDMIN
+				// FLAG
+				
 				this.flags[ruleType] = definitionParts[1];
 			}
 		}
@@ -272,13 +274,13 @@ Typo.prototype = {
 			
 			// Now for each affix rule, generate that form of the word.
 			if (parts.length > 1) {
-				var ruleCodes = parts[1];
+				var ruleCodesArray = this.parseRuleCodes(parts[1]);
 				
 				// Save the ruleCodes for compound word situations.
-				dictionaryTable[word] = ruleCodes;
+				dictionaryTable[word] = ruleCodesArray;
 				
-				for (var j = 0, _jlen = ruleCodes.length; j < _jlen; j++) {
-					var code = ruleCodes[j];
+				for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
+					var code = ruleCodesArray[j];
 					
 					var rule = this.rules[code];
 					
@@ -292,7 +294,7 @@ Typo.prototype = {
 							
 							if (rule.combineable) {
 								for (var k = j + 1; k < _jlen; k++) {
-									var combineCode = ruleCodes[k];
+									var combineCode = ruleCodesArray[k];
 									
 									var combineRule = this.rules[combineCode];
 									
@@ -324,6 +326,27 @@ Typo.prototype = {
 		return dictionaryTable;
 	},
 	
+	parseRuleCodes : function (textCodes) {
+		if (!textCodes) {
+			return [];
+		}
+		else if (!("FLAG" in this.flags)) {
+			return textCodes.split("");
+		}
+		else if (this.flags.FLAG === "long") {
+			var flags = [];
+			
+			for (var i = 0, _len = textCodes.length; i < _len; i += 2) {
+				flags.push(textCodes.substring(i, 2));
+			}
+			
+			return flags;
+		}
+		else if (this.flags.FLAG === "num") {
+			return textCode.split(",");
+		}
+	},
+	
 	/**
 	 * Parses the .dic file and generates an array containing the concat-
 	 * enations of all words of identical length. array[1] will contain all
@@ -351,11 +374,10 @@ Typo.prototype = {
 			
 			// Now for each affix rule, generate that form of the word.
 			if (parts.length > 1) {
-				var ruleCodes = parts[1];
+				var ruleCodesArray = this.parseRuleCodes(parts[1]);
 				
-				for (var j = 0, _jlen = ruleCodes.length; j < _jlen; j++) {
-					var code = ruleCodes[j];
-					
+				for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
+					var code = ruleCodesArray[j];
 					var rule = this.rules[code];
 					
 					if (rule) {
@@ -369,7 +391,7 @@ Typo.prototype = {
 							
 							if (rule.combineable) {
 								for (var k = j + 1; k < _jlen; k++) {
-									var combineCode = ruleCodes[k];
+									var combineCode = ruleCodesArray[k];
 									
 									if (combineCode in this.rules) {
 										var combineRule = this.rules[combineCode];

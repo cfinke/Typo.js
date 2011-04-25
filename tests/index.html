@@ -40,6 +40,18 @@
 				
 				module("Binary search implementation (Latin)");
 				testLatinDictionary(binaryDict);
+				
+				var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.aff"), "UTF-8");
+				var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.dic"), "UTF-8");
+				
+				var hashDict = new Typo("fr_FR", affData, wordData, "hash");
+				var binaryDict = new Typo("fr_FR", affData, wordData, "binarysearch");
+				
+				module("Hash implementation (French)");
+				testFrenchDictionary(hashDict);
+				
+				module("Binary search implementation (French)");
+				testFrenchDictionary(binaryDict);
 			}
 			
 			function testEnglishDictionary(dict) {
@@ -180,6 +192,16 @@
 					equal(dict.check("  saxi"), true);
 					equal(dict.check("saxi  "), true);
 					equal(dict.check("  saxi  "), true);
+				});
+			}
+			
+			function testFrenchDictionary(dict) {
+				test("Dictionary object attributes are properly set", function () {
+					equal(dict.dictionary, "fr_FR");
+				});
+				
+				test("Correct checking of words with affixes", function () {
+					equal(dict.check("marchons"), true);
 				});
 			}
 				

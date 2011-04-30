@@ -29,6 +29,15 @@
 				test("Correct checking of words with affixes", function () {
 					equal(dict.check("marchons"), true);
 				});
+				
+				test("KEEPCASE flag is respected", function () {
+					equal(dict.check("Bq"), true);
+					equal(dict.check("BQ"), false);
+					equal(dict.check("pH"), true);
+					equal(dict.check("mmHg"), true);
+					equal(dict.check("MMHG"), false);
+					equal(dict.check("Mmhg"), false);
+				});
 			}
 				
 		</script>

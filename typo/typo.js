@@ -46,6 +46,8 @@ var Typo = function (dictionary, affData, wordsData, implementation) {
 	this.compoundRules = [];
 	this.compoundRuleCodes = {};
 	
+	this.keepCaseHash = {};
+	
 	this.flags = {};
 	
 	if (dictionary) {
@@ -229,6 +231,7 @@ Typo.prototype = {
 				// ONLYINCOMPOUND
 				// COMPOUNDMIN
 				// FLAG
+				// KEEPCASE
 				
 				this.flags[ruleType] = definitionParts[1];
 			}
@@ -311,6 +314,9 @@ Typo.prototype = {
 								}
 							}
 						}
+					}
+					else if ("KEEPCASE" in this.flags && code === this.flags.KEEPCASE) {
+						this.keepCaseHash[word] = true;
 					}
 					
 					if (code in this.compoundRuleCodes) {
@@ -410,6 +416,9 @@ Typo.prototype = {
 							}
 						}
 					}
+					else if ("KEEPCASE" in this.flags && code === this.flags.KEEPCASE) {
+						this.keepCaseHash[word] = true;
+					}
 					
 					if (code in this.compoundRuleCodes) {
 						this.compoundRuleCodes[code].push(word);
@@ -498,12 +507,16 @@ Typo.prototype = {
 		}
 		
 		// The exact word is not in the dictionary.
-		
 		if (trimmedWord.toUpperCase() === trimmedWord) {
 			// The word was supplied in all uppercase.
 			// Check for a capitalized form of the word.
 			// @todo Support for the KEEPCASE flag
 			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
+			
+			if (("KEEPCASE" in this.flags) && (capitalizedWord in this.keepCaseHash)) {
+				// Capitalization variants are not allowed for this word.
+				return false;
+			}
 			
 			if (this.checkExact(capitalizedWord)) {
 				return true;
@@ -513,6 +526,11 @@ Typo.prototype = {
 		var lowercaseWord = trimmedWord.toLowerCase();
 		
 		if (lowercaseWord !== trimmedWord) {
+			if (("KEEPCASE" in this.flags) && (lowercaseWord in this.keepCaseHash)) {
+				// Capitalization variants are not allowed for this word.
+				return false;
+			}
+			
 			// Check for a lowercase form
 			if (this.checkExact(lowercaseWord)) {
 				return true;

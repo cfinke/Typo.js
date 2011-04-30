@@ -1,0 +1,43 @@
+<html>
+	<head>
+		<title>Typo.js French Test Suite</title>
+		<link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
+		<script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+		<script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
+		<script type="text/javascript" src="../typo/typo.js"></script>
+		<script type="text/javascript">
+			function run() {
+				var utilityDict = new Typo();
+				var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.aff"), "UTF-8");
+				var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.dic"), "UTF-8");
+				
+				var hashDict = new Typo("fr_FR", affData, wordData, "hash");
+				var binaryDict = new Typo("fr_FR", affData, wordData, "binarysearch");
+				
+				module("Hash implementation (French)");
+				testDictionary(hashDict);
+				
+				module("Binary search implementation (French)");
+				testDictionary(binaryDict);
+			}
+			
+			function testDictionary(dict) {
+				test("Dictionary object attributes are properly set", function () {
+					equal(dict.dictionary, "fr_FR");
+				});
+				
+				test("Correct checking of words with affixes", function () {
+					equal(dict.check("marchons"), true);
+				});
+			}
+				
+		</script>
+	</head>
+	<body onload="run();">
+		<h1 id="qunit-header">Typo.js French Test Suite</h1>
+		<h2 id="qunit-banner"></h2>
+		<div id="qunit-testrunner-toolbar"></div>
+		<h2 id="qunit-userAgent"></h2>
+		<ol id="qunit-tests"></ol>
+	</body>
+</html>

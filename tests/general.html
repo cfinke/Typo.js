@@ -1,0 +1,27 @@
+<html>
+	<head>
+		<title>Typo.js General Test Suite</title>
+		<link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
+		<script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+		<script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
+		<script type="text/javascript" src="../typo/typo.js"></script>
+		<script type="text/javascript">
+			function run() {
+				var empty_dict = new Typo();
+				
+				test("Dictionary instantiated without arguments is essentially empty.", function () {
+					deepEqual(empty_dict.rules, {});
+					deepEqual(empty_dict.dictionaryTable, {});
+					deepEqual(empty_dict.dictionary, null);
+				});
+			}
+		</script>
+	</head>
+	<body onload="run();">
+		<h1 id="qunit-header">Typo.js General Test Suite</h1>
+		<h2 id="qunit-banner"></h2>
+		<div id="qunit-testrunner-toolbar"></div>
+		<h2 id="qunit-userAgent"></h2>
+		<ol id="qunit-tests"></ol>
+	</body>
+</html>

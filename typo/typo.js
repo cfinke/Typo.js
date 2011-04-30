@@ -186,7 +186,7 @@ Typo.prototype = {
 					var regexToMatch = lineParts[4];
 					
 					var entry = {};
-					entry.add = charactersToAdd.toLowerCase();
+					entry.add = charactersToAdd;
 					
 					if (regexToMatch !== ".") {
 						if (ruleType === "SFX") {
@@ -270,7 +270,7 @@ Typo.prototype = {
 			
 			var parts = line.split("/", 2);
 			
-			var word = parts[0].toLowerCase();
+			var word = parts[0];
 			
 			// Now for each affix rule, generate that form of the word.
 			if (parts.length > 1) {
@@ -367,7 +367,7 @@ Typo.prototype = {
 			
 			var parts = line.split("/", 2);
 			
-			var word = parts[0].toLowerCase();
+			var word = parts[0];
 			
 			if (!(word.length in patternTable)) patternTable[word.length] = [];
 			patternTable[word.length].push(word);
@@ -481,6 +481,48 @@ Typo.prototype = {
 	},
 	
 	/**
+	 * Checks whether a word or a capitalization variant exists in the current dictionary.
+	 * The word is trimmed and several variations of capitalizations are checked.
+	 * If you want to check a word without any changes made to it, call checkExact()
+	 *
+	 * @param {String} aWord The word to check.
+	 * @returns {Boolean}
+	 */
+	
+	check : function (aWord) {
+		// Remove leading and trailing whitespace
+		var trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		
+		if (this.checkExact(trimmedWord)) {
+			return true;
+		}
+		
+		// The exact word is not in the dictionary.
+		
+		if (trimmedWord.toUpperCase() === trimmedWord) {
+			// The word was supplied in all uppercase.
+			// Check for a capitalized form of the word.
+			// @todo Support for the KEEPCASE flag
+			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
+			
+			if (this.checkExact(capitalizedWord)) {
+				return true;
+			}
+		}
+		
+		var lowercaseWord = trimmedWord.toLowerCase();
+		
+		if (lowercaseWord !== trimmedWord) {
+			// Check for a lowercase form
+			if (this.checkExact(lowercaseWord)) {
+				return true;
+			}
+		}
+		
+		return false;
+	},
+	
+	/**
 	 * Checks whether a word exists in the current dictionary.
 	 *
 	 * @see http://blog.stevenlevithan.com/archives/faster-trim-javascript re:trimming function
@@ -489,10 +531,8 @@ Typo.prototype = {
 	 * @returns {Boolean}
 	 */
 	
-	check : function (word) {
+	checkExact : function (word) {
 		var rv = false;
-		
-		word = word.toLowerCase().replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 		
 		if (this.implementation == "binarysearch") {
 			rv = this._checkBinaryString(word);
@@ -613,13 +653,169 @@ Typo.prototype = {
 	/**
 	 * Returns a list of suggestions for a misspelled word.
 	 *
-	 * @todo Not yet implemented.
+	 * @see http://www.norvig.com/spell-correct.html for the basis of this suggestor.
+	 * This suggestor is primitive, but it works.
 	 *
 	 * @param {String} word The misspelling.
+	 * @param {Number} [limit=5] The maximum number of suggestions to return.
 	 * @returns {String[]} The array of suggestions.
 	 */
 	
-	suggest : function (word) {
-		throw "suggest not implemented.";
+	alphabet : "",
+	
+	suggest : function (word, limit) {
+		if (!limit) limit = 5;
+		
+		if (this.check(word)) return [];
+		
+		word = word;
+		
+		var self = this;
+		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
+		/*
+		if (!self.alphabet) {
+			// Use the alphabet as implicitly defined by the words in the dictionary.
+			var alphaHash = {};
+			
+			for (var i in self.dictionaryTable) {
+				if (self.implementation === 'binarysearch') var example = self.dictionaryTable[i];
+				else var example = i;
+				
+				for (var j = 0, _len = example.length; j < _len; j++) {
+					alphaHash[example[j]] = true;
+				}
+			}
+			
+			for (var i in alphaHash) {
+				self.alphabet += i;
+			}
+			
+			var alphaArray = self.alphabet.split("");
+			alphaArray.sort();
+			self.alphabet = alphaArray.join("");
+		}
+		*/
+		function edits1(words) {
+			var rv = [];
+			
+			for (var ii = 0, _iilen = words.length; ii < _iilen; ii++) {
+				var word = words[ii];
+				
+				var splits = [];
+			
+				for (var i = 0, _len = word.length + 1; i < _len; i++) {
+					splits.push([ word.substring(0, i), word.substring(i, word.length) ]);
+				}
+			
+				var deletes = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1]) {
+						deletes.push(s[0] + s[1].substring(1));
+					}
+				}
+			
+				var transposes = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1].length > 1) {
+						transposes.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+					}
+				}
+			
+				var replaces = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1]) {
+						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+							replaces.push(s[0] + self.alphabet[j] + s[1].substring(1));
+						}
+					}
+				}
+			
+				var inserts = [];
+			
+				for (var i = 0, _len = splits.length; i < _len; i++) {
+					var s = splits[i];
+				
+					if (s[1]) {
+						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+							replaces.push(s[0] + self.alphabet[j] + s[1]);
+						}
+					}
+				}
+			
+				rv = rv.concat(deletes);
+				rv = rv.concat(transposes);
+				rv = rv.concat(replaces);
+				rv = rv.concat(inserts);
+			}
+			
+			return rv;
+		}
+		
+		function known(words) {
+			var rv = [];
+			
+			for (var i = 0; i < words.length; i++) {
+				if (self.check(words[i])) {
+					rv.push(words[i]);
+				}
+			}
+			
+			return rv;
+		}
+		
+		function correct(word) {
+			// Get the edit-distance-1 and edit-distance-2 forms of this word.
+			var ed1 = edits1([word]);
+			var ed2 = edits1(ed1);
+			
+			var corrections = known(ed1).concat(known(ed2));
+			
+			// Sort the edits based on how many different ways they were created.
+			var weighted_corrections = {};
+			
+			for (var i = 0, _len = corrections.length; i < _len; i++) {
+				if (!(corrections[i] in weighted_corrections)) {
+					weighted_corrections[corrections[i]] = 1;
+				}
+				else {
+					weighted_corrections[corrections[i]] += 1;
+				}
+			}
+			
+			var sorted_corrections = [];
+			
+			for (var i in weighted_corrections) {
+				sorted_corrections.push([ i, weighted_corrections[i] ]);
+			}
+			
+			function sorter(a, b) {
+				if (a[1] < b[1]) {
+					return -1;
+				}
+				
+				return 1;
+			}
+			
+			sorted_corrections.sort(sorter).reverse();
+			
+			var rv = [];
+			
+			for (var i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
+				rv.push(sorted_corrections[i][0]);
+			}
+			
+			return rv;
+		}
+		
+		return correct(word);
 	}
 };

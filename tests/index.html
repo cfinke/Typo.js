@@ -52,11 +52,27 @@
 				
 				module("Binary search implementation (French)");
 				testFrenchDictionary(binaryDict);
+				
+				var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/de_DE/de_DE.aff"), "ISO8859-1");
+				var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/de_DE/de_DE.dic"), "ISO8859-1");
+				var hashDict = new Typo("de_DE", affData, wordData, "hash");
+				var binaryDict = new Typo("de_DE", affData, wordData, "binarysearch");
+				
+				module("Hash implementation (German)");
+				testGermanDictionary(hashDict);
+				
+				module("Binary search implementation (German)");
+				testGermanDictionary(binaryDict);
 			}
 			
 			function testEnglishDictionary(dict) {
 				test("Dictionary object attributes are properly set", function () {
 					equal(dict.dictionary, "en_US");
+				});
+				
+				test("Suggestions", function () {
+					deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
+					deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
 				});
 				
 				test("Correct checking of words with no affixes", function () {
@@ -81,15 +97,30 @@
 					equal(dict.check("illusive"), true);
 				});
 				
-				test("Capitalization is ignored.", function () {
+				test("Capitalization is respected.", function () {
 					equal(dict.check("A"), true);
-					equal(dict.check("AbAcK"), true);
-					equal(dict.check("jUICily"), true);
-					equal(dict.check("PALMATE"), true);
-					equal(dict.check("PALING"), true);
-					equal(dict.check("ARRANGEABLE"), true);
-					equal(dict.check("ARRANT"), true);
-					equal(dict.check("SWABBY"), true);
+					equal(dict.check("a"), true);
+					equal(dict.check("AA"), true);
+					equal(dict.check("ABANDONER"), true);
+					equal(dict.check("abandonER"), true);
+					equal(dict.check("Abandoner"), true);
+					equal(dict.check("Abbe"), true);
+					equal(dict.check("Abbott's"), true);
+					equal(dict.check("abbott's"), false);
+					equal(dict.check("Abba"), true);
+					equal(dict.check("ABBA"), true);
+					equal(dict.check("Abba's"), true);
+					equal(dict.check("Yum"), true);
+					equal(dict.check("yum"), true);
+					equal(dict.check("YUM"), true);
+					equal(dict.check("aa"), false);
+					equal(dict.check("aaron"), false);
+					equal(dict.check("abigael"), false);
+					equal(dict.check("YVES"), true);
+					equal(dict.check("yves"), false);
+					equal(dict.check("Yves"), true);
+					equal(dict.check("MACARTHUR"), true);
+					equal(dict.check("MacArthur"), true);
 				});
 				
 				test("Words not in the dictionary in any form are marked as misspelled.", function () {
@@ -173,12 +204,6 @@
 					equal(dict.check("terrae"), true);
 				});
 
-				test("Capitalization is ignored.", function () {
-					equal(dict.check("PertrAnsiverisque"), true);
-					equal(dict.check("SEPULCHRA"), true);
-					equal(dict.check("SaxI"), true);
-				});
-				
 				test("Words not in the dictionary in any form are marked as misspelled.", function () {
 					equal(dict.check("labhfblhbf"), false);
 					equal(dict.check("weluhf73"), false);
@@ -202,6 +227,17 @@
 				
 				test("Correct checking of words with affixes", function () {
 					equal(dict.check("marchons"), true);
+				});
+			}
+			
+			function testGermanDictionary(dict) {
+				test("Dictionary object attributes are properly set", function () {
+					equal(dict.dictionary, "de_DE");
+				});
+				
+				test("Capitalization is respected", function () {
+					equal(dict.check("Liebe"), true);
+					equal(dict.check("liebe"), false);
 				});
 			}
 				

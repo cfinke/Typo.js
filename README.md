@@ -8,16 +8,6 @@ To check if a word is spelled correctly, do this:
 
 	var is_spelled_correctly = dictionary.check("mispelled");
 
-You can choose the backend implementation by setting dictionary.implementation in typo.js:
-
-* hash
-
-	Stores the dictionary words as the keys of a hashand does a key existence check to determine whether a word is spelled correctly. Lookups are very fast, but this method uses the most memory.
- 
-* binarysearch
-
-	Stores the dictionary words in a series of strings and uses binary search to check whether a word exists in the dictionary. It uses less memory than the hash implementation, but lookups are slower.
-
 _Note: The manifest.json file in the root directory of the project is there to simplify testing, as it allows you to load all of the files in the Typo project as a Chrome extension. It doesn't have any purpose if you're using Typo.js in your own project._
 
 Licensing

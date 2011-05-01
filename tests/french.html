@@ -11,14 +11,8 @@
 				var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.aff"), "UTF-8");
 				var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.dic"), "UTF-8");
 				
-				var hashDict = new Typo("fr_FR", affData, wordData, "hash");
-				var binaryDict = new Typo("fr_FR", affData, wordData, "binarysearch");
-				
-				module("Hash implementation (French)");
+				var hashDict = new Typo("fr_FR", affData, wordData);
 				testDictionary(hashDict);
-				
-				module("Binary search implementation (French)");
-				testDictionary(binaryDict);
 			}
 			
 			function testDictionary(dict) {

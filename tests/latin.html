@@ -12,13 +12,7 @@
 				var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/la/la.dic"));
 				
 				var hashDict = new Typo("la", affData, wordData, "hash");
-				var binaryDict = new Typo("la", affData, wordData, "binarysearch");
-				
-				module("Hash implementation (Latin)");
 				testDictionary(hashDict);
-				
-				module("Binary search implementation (Latin)");
-				testDictionary(binaryDict);
 			}
 			
 			function testDictionary(dict) {

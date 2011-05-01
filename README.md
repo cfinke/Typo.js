@@ -8,6 +8,17 @@ To check if a word is spelled correctly, do this:
 
 	var is_spelled_correctly = dictionary.check("mispelled");
 
+Typo.js has full support for the following Hunspell affix flags:
+
+* PFX
+* SFX
+* KEEPCASE
+* ONLYINCOMPOUND
+* NOSUGGEST
+* COMPOUNDMIN
+* COMPOUNDRULE
+* FLAG
+
 _Note: The manifest.json file in the root directory of the project is there to simplify testing, as it allows you to load all of the files in the Typo project as a Chrome extension. It doesn't have any purpose if you're using Typo.js in your own project._
 
 Licensing

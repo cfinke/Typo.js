@@ -377,7 +377,7 @@ Typo.prototype = {
 			// Check for a capitalized form of the word.
 			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
 			
-			if (this.shouldKeepCase(capitalizedWord)) {
+			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
 				return false;
 			}
@@ -390,7 +390,7 @@ Typo.prototype = {
 		var lowercaseWord = trimmedWord.toLowerCase();
 		
 		if (lowercaseWord !== trimmedWord) {
-			if (this.shouldKeepCase(lowercaseWord)) {
+			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
 				return false;
 			}
@@ -427,7 +427,7 @@ Typo.prototype = {
 			return false;
 		}
 		else {
-			if ("ONLYINCOMPOUND" in this.flags && ruleCodes.indexOf(this.flags.ONLYINCOMPOUND) != -1) {
+			if (this.hasFlag(word, "ONLYINCOMPOUND")) {
 				return false;
 			}
 			
@@ -435,11 +435,21 @@ Typo.prototype = {
 		}
 	},
 	
-	shouldKeepCase : function (word) {
-		var flags = this.dictionaryTable[word];
-		
-		if (flags && "KEEPCASE" in this.flags && flags.indexOf(this.flags.KEEPCASE) !== -1) {
-			return true;
+	/**
+	 * Looks up whether a given word is flagged with a given flag.
+	 *
+	 * @param {String} word The word in question.
+	 * @param {String} flag The flag in question.
+	 * @return {Boolean}
+	 */
+	 
+	hasFlag : function (word, flag) {
+		if (flag in this.flags) {
+			var wordFlags = this.dictionaryTable[word];
+			
+			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
+				return true;
+			}
 		}
 		
 		return false;
@@ -602,7 +612,9 @@ Typo.prototype = {
 			var rv = [];
 			
 			for (var i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
-				rv.push(sorted_corrections[i][0]);
+				if (!this.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
+					rv.push(sorted_corrections[i][0]);
+				}
 			}
 			
 			return rv;

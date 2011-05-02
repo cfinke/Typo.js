@@ -141,10 +141,7 @@ Typo.prototype = {
 		var rules = {};
 		
 		// Remove comment lines
-		data = data.replace(/\n#[^\n]*\n/g, "\n");
-		
-		// Remove blank lines
-		data = data.replace(/\n{2,}/g, "\n");
+		data = this._removeAffixComments(data);
 		
 		var lines = data.split("\n");
 		
@@ -228,6 +225,29 @@ Typo.prototype = {
 		}
 		
 		return rules;
+	},
+	
+	/**
+	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
+	 *
+	 * @param {String} data The data from an affix file.
+	 * @return {String} The cleaned-up data.
+	 */
+	
+	_removeAffixComments : function (data) {
+		// Remove comments
+		data = data.replace(/#.*$/mg, "");
+		
+		// Trim each line
+		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
+		
+		// Remove blank lines.
+		data = data.replace(/\n{2,}/g, "\n");
+		
+		// Trim the entire string
+		data = data.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		
+		return data;
 	},
 	
 	/**

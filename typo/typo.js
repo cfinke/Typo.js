@@ -29,6 +29,8 @@ var Typo = function (dictionary, affData, wordsData) {
 	this.compoundRules = [];
 	this.compoundRuleCodes = {};
 	
+	this.replacementTable = [];
+	
 	this.flags = {};
 	
 	if (dictionary) {
@@ -207,6 +209,13 @@ Typo.prototype = {
 				}
 				
 				i += numEntries;
+			}
+			else if (ruleType === "REP") {
+				var lineParts = line.split(/\s+/);
+				
+				if (lineParts.length === 3) {
+					this.replacementTable.push([ lineParts[1], lineParts[2] ]);
+				}
 			}
 			else {
 				// ONLYINCOMPOUND
@@ -473,6 +482,19 @@ Typo.prototype = {
 		
 		if (this.check(word)) return [];
 		
+		// Check the replacement table.
+		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
+			var replacementEntry = this.replacementTable[i];
+			
+			if (word.indexOf(replacementEntry[0]) !== -1) {
+				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
+				
+				if (this.check(correctedWord)) {
+					return [ correctedWord ];
+				}
+			}
+		}
+		
 		var self = this;
 		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
 		
@@ -612,7 +634,7 @@ Typo.prototype = {
 			var rv = [];
 			
 			for (var i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
-				if (!this.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
+				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
 					rv.push(sorted_corrections[i][0]);
 				}
 			}

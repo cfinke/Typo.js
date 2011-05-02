@@ -124,6 +124,14 @@
 					// acceptability's is in the dictionary including the 's
 					equal(dict.check("acceptability's's"), false);
 				});
+				
+				test("Replacement rules are implemented", function () {
+					deepEqual(dict.suggest("wagh"), [ "weigh" ]);
+					deepEqual(dict.suggest("ceit"), [ "cat" ]);
+					deepEqual(dict.suggest("seau"), [ "so" ]);
+					deepEqual(dict.suggest("shaccable"), [ "shakable" ]);
+					deepEqual(dict.suggest("soker"), [ "choker" ]);
+				});
 			}
 				
 		</script>

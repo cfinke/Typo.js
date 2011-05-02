@@ -1,12 +1,27 @@
 Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.  Its main use is to allow Chrome extensions to perform client-side spellchecking.
 
+Usage
+=====
+
 To use Typo, simply include the typo.js file in your extension's background page, and then initialize the dictionary like so:
 
-	var dictionary = new Typo("en_US");
+```javascript
+var dictionary = new Typo("en_US");
+```
 
 To check if a word is spelled correctly, do this:
 
-	var is_spelled_correctly = dictionary.check("mispelled");
+```javascript
+var is_spelled_correctly = dictionary.check("mispelled");
+```
+
+To get suggested corrections for a misspelled word, do this:
+	
+```javascript
+var array_of_suggestions = dictionary.suggest("mispeling");
+
+// array_of_suggestions == ["misspelling", "dispelling", "misdealing", "misfiling", "misruling"]
+```
 
 Typo.js has full support for the following Hunspell affix flags:
 

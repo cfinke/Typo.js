@@ -132,6 +132,15 @@
 					deepEqual(dict.suggest("shaccable"), [ "shakable" ]);
 					deepEqual(dict.suggest("soker"), [ "choker" ]);
 				});
+				
+				test("Contractions", function () {
+					equal(dict.check("aren't"), true);
+					equal(dict.check("I'm"), true);
+					equal(dict.check("we're"), true);
+					equal(dict.check("didn't"), true);
+					equal(dict.check("didn'ts"), false);
+					equal(dict.check("he're"), false);
+				});
 			}
 				
 		</script>

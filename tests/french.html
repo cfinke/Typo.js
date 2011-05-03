@@ -1,5 +1,6 @@
 <html>
 	<head>
+		<meta charset="UTF-8">
 		<title>Typo.js French Test Suite</title>
 		<link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
 		<script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
@@ -35,9 +36,24 @@
 				
 				test("Contractions are recognized", function () {
 					equal(dict.check("j'espère"), true);
-					equal(dict.check("j'espére"), true);
-					equal(dict.check("C'est"), true);
-					equal(dict.check("c'est"), true);
+					equal(dict.check("j'espére"), false);
+				});
+				
+				test("Continuation classes", function () {
+					equal(dict.check("l'impedimentum"), true);
+					equal(dict.check("d'impedimentum"), true);
+					equal(dict.check("d'impedimenta"), true);
+					equal(dict.check("espérés"), true);
+					equal(dict.check("espérée"), true);
+					equal(dict.check("espérées"), true);
+					equal(dict.check("qu'espérés"), true);
+					equal(dict.check("qu'espérée"), true);
+					equal(dict.check("qu'espérées"), true);
+				});
+				
+				test("NEEDAFFIX is respected", function () {
+					equal(dict.check("esperluette"), false);
+					equal(dict.check("espressivo"), true);
 				});
 			}
 				

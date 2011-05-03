@@ -164,11 +164,17 @@ Typo.prototype = {
 					
 					var lineParts = line.split(/\s+/);
 					var charactersToRemove = lineParts[2];
-					var charactersToAdd = lineParts[3];
+					
+					var additionParts = lineParts[3].split("/");
+					var charactersToAdd = additionParts[0];
+					var continuationClasses = this.parseRuleCodes(additionParts[1]);
+					
 					var regexToMatch = lineParts[4];
 					
 					var entry = {};
 					entry.add = charactersToAdd;
+					
+					if (continuationClasses.length > 0) entry.continuationClasses = continuationClasses;
 					
 					if (regexToMatch !== ".") {
 						if (ruleType === "SFX") {
@@ -219,6 +225,7 @@ Typo.prototype = {
 				// COMPOUNDMIN
 				// FLAG
 				// KEEPCASE
+				// NEEDAFFIX
 				
 				this.flags[ruleType] = definitionParts[1];
 			}
@@ -259,6 +266,8 @@ Typo.prototype = {
 	 */
 	
 	_parseDIC : function (data) {
+		data = this._removeDicComments(data);
+		
 		var lines = data.split("\n");
 		var dictionaryTable = {};
 		
@@ -269,13 +278,15 @@ Typo.prototype = {
 			var parts = line.split("/", 2);
 			
 			var word = parts[0];
-			
+
 			// Now for each affix rule, generate that form of the word.
 			if (parts.length > 1) {
 				var ruleCodesArray = this.parseRuleCodes(parts[1]);
 				
 				// Save the ruleCodes for compound word situations.
-				dictionaryTable[word] = ruleCodesArray;
+				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
+					dictionaryTable[word] = ruleCodesArray;
+				}
 				
 				for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
 					var code = ruleCodesArray[j];
@@ -322,6 +333,35 @@ Typo.prototype = {
 		}
 		
 		return dictionaryTable;
+	},
+	
+	
+	/**
+	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
+	 *
+	 * @param {String} data The data from a .dic file.
+	 * @return {String} The cleaned-up data.
+	 */
+	
+	_removeDicComments : function (data) {
+		// I can't find any official documentation on it, but at least the de_DE
+		// dictionary uses tab-indented lines as comments.
+		
+		// Remove comments
+		data = data.replace(/^\t.*$/mg, "");
+		
+		return data;
+		
+		// Trim each line
+		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
+		
+		// Remove blank lines.
+		data = data.replace(/\n{2,}/g, "\n");
+		
+		// Trim the entire string
+		data = data.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		
+		return data;
 	},
 	
 	parseRuleCodes : function (textCodes) {
@@ -375,6 +415,23 @@ Typo.prototype = {
 				}
 				
 				newWords.push(newWord);
+				
+				if ("continuationClasses" in entry) {
+					for (var j = 0, _jlen = entry.continuationClasses.length; j < _jlen; j++) {
+						var continuationRule = this.rules[entry.continuationClasses[j]];
+						
+						if (continuationRule) {
+							newWords = newWords.concat(this._applyRule(newWord, continuationRule));
+						}
+						/*
+						else {
+							// This shouldn't happen, but it does, at least in the de_DE dictionary.
+							// I think the author mistakenly supplied lower-case rule codes instead 
+							// of upper-case.
+						}
+						*/
+					}
+				}
 			}
 		}
 		

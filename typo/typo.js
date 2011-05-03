@@ -335,7 +335,7 @@ Typo.prototype = {
 			var flags = [];
 			
 			for (var i = 0, _len = textCodes.length; i < _len; i += 2) {
-				flags.push(textCodes.substring(i, 2));
+				flags.push(textCodes.substr(i, 2));
 			}
 			
 			return flags;

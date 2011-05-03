@@ -32,6 +32,13 @@
 					equal(dict.check("MMHG"), false);
 					equal(dict.check("Mmhg"), false);
 				});
+				
+				test("Contractions are recognized", function () {
+					equal(dict.check("j'espère"), true);
+					equal(dict.check("j'espére"), true);
+					equal(dict.check("C'est"), true);
+					equal(dict.check("c'est"), true);
+				});
 			}
 				
 		</script>

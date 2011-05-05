@@ -166,7 +166,10 @@ Typo.prototype = {
 					var charactersToRemove = lineParts[2];
 					
 					var additionParts = lineParts[3].split("/");
+					
 					var charactersToAdd = additionParts[0];
+					if (charactersToAdd === "0") charactersToAdd = "";
+					
 					var continuationClasses = this.parseRuleCodes(additionParts[1]);
 					
 					var regexToMatch = lineParts[4];

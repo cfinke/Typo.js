@@ -24,7 +24,9 @@
 				test("Capitalization is respected", function () {
 					equal(dict.check("Liebe"), true);
 					equal(dict.check("LIEBE"), true);
-					equal(dict.check("liebe"), false);
+					
+					// liebe is flagged with ONLYINCOMPOUND, but lieb has a suffix rule that generates liebe
+					equal(dict.check("liebe"), true);
 				});
 			}
 				

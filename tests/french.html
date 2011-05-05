@@ -37,6 +37,8 @@
 				test("Contractions are recognized", function () {
 					equal(dict.check("j'espère"), true);
 					equal(dict.check("j'espére"), false);
+					equal(dict.check("c'est"), true);
+					equal(dict.check("C'est"), true);
 				});
 				
 				test("Continuation classes", function () {
@@ -52,8 +54,12 @@
 				});
 				
 				test("NEEDAFFIX is respected", function () {
-					equal(dict.check("esperluette"), false);
+					// Not flagged with NEEDAFFIX
 					equal(dict.check("espressivo"), true);
+					
+					// Is flagged with NEEDAFFIX, but has an empty affix rule
+					equal(dict.check("espérance"), true);
+					equal(dict.check("esperluette"), true);
 				});
 			}
 				

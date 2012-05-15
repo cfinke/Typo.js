@@ -565,8 +565,9 @@ Typo.prototype = {
 
 	alphabet : "",
 
-	suggest : function (word, limit) {
+	suggest : function (word, limit, distance2) {
 		if (!limit) limit = 5;
+		if (distance2 === undefined) distance2 = true;
 
 		if (this.check(word)) return [];
 
@@ -687,9 +688,12 @@ Typo.prototype = {
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
 			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
+			var corrections = known(ed1);
 
-			var corrections = known(ed1).concat(known(ed2));
+			if (distance2) {
+				var ed2 = edits1(ed1);
+				corrections = corrections.concat(known(ed2));
+			}
 
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};

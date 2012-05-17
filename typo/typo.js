@@ -560,15 +560,21 @@ Typo.prototype = {
 	 *
 	 * @param {String} word The misspelling.
 	 * @param {Number} [limit=5] The maximum number of suggestions to return.
+	 * @param {Boolean} [distance2=true] Probe for suggestions that is of 2nd distance to
+	 *                                   the typo.
+	 * @param {Boolean} [alwaysSuggest=true] Always make suggestions even if the original word
+	 *                                       is correct.
 	 * @returns {String[]} The array of suggestions.
 	 */
 
 	alphabet : "",
 
-	suggest : function (word, limit) {
+	suggest : function (word, limit, distance2, alwaysSuggest) {
 		if (!limit) limit = 5;
+		if (distance2 === undefined) distance2 = true;
+		if (alwaysSuggest === undefined) alwaysSuggest = false;
 
-		if (this.check(word)) return [];
+		if (!alwaysSuggest && this.check(word)) return [];
 
 		// Check the replacement table.
 		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
@@ -687,9 +693,12 @@ Typo.prototype = {
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
 			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
+			var corrections = known(ed1);
 
-			var corrections = known(ed1).concat(known(ed2));
+			if (distance2) {
+				var ed2 = edits1(ed1);
+				corrections = corrections.concat(known(ed2));
+			}
 
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};

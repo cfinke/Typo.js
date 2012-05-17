@@ -562,16 +562,19 @@ Typo.prototype = {
 	 * @param {Number} [limit=5] The maximum number of suggestions to return.
 	 * @param {Boolean} [distance2=true] Probe for suggestions that is of 2nd distance to
 	 *                                   the typo.
+	 * @param {Boolean} [alwaysSuggest=true] Always make suggestions even if the original word
+	 *                                       is correct.
 	 * @returns {String[]} The array of suggestions.
 	 */
 
 	alphabet : "",
 
-	suggest : function (word, limit, distance2) {
+	suggest : function (word, limit, distance2, alwaysSuggest) {
 		if (!limit) limit = 5;
 		if (distance2 === undefined) distance2 = true;
+		if (alwaysSuggest === undefined) alwaysSuggest = false;
 
-		if (this.check(word)) return [];
+		if (!alwaysSuggest && this.check(word)) return [];
 
 		// Check the replacement table.
 		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {

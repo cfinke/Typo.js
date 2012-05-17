@@ -560,6 +560,8 @@ Typo.prototype = {
 	 *
 	 * @param {String} word The misspelling.
 	 * @param {Number} [limit=5] The maximum number of suggestions to return.
+	 * @param {Boolean} [distance2=true] Probe for suggestions that is of 2nd distance to
+	 *                                   the typo.
 	 * @returns {String[]} The array of suggestions.
 	 */
 

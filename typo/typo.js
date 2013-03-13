@@ -274,6 +274,15 @@ Typo.prototype = {
 		var lines = data.split("\n");
 		var dictionaryTable = {};
 		
+		function addWord(word, rules) {
+			// Some dictionaries will list the same word multiple times with different rule sets.
+			if (!(word in dictionaryTable) || typeof dictionaryTable[word] != 'object') {
+				dictionaryTable[word] = [];
+			}
+			
+			dictionaryTable[word].push(rules);
+		}
+		
 		// The first line is the number of words in the dictionary.
 		for (var i = 1, _len = lines.length; i < _len; i++) {
 			var line = lines[i];
@@ -288,7 +297,7 @@ Typo.prototype = {
 				
 				// Save the ruleCodes for compound word situations.
 				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
-					dictionaryTable[word] = ruleCodesArray;
+					addWord(word, ruleCodesArray);
 				}
 				
 				for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
@@ -301,8 +310,8 @@ Typo.prototype = {
 						
 						for (var ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
 							var newWord = newWords[ii];
-						
-							dictionaryTable[newWord] = "";
+							
+							addWord(newWord, []);
 							
 							if (rule.combineable) {
 								for (var k = j + 1; k < _jlen; k++) {
@@ -316,7 +325,7 @@ Typo.prototype = {
 											
 											for (var iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
 												var otherNewWord = otherNewWords[iii];
-												dictionaryTable[otherNewWord] = "";
+												addWord(otherNewWord, []);
 											}
 										}
 									}
@@ -331,7 +340,7 @@ Typo.prototype = {
 				}
 			}
 			else {
-				dictionaryTable[word] = "";
+				addWord(word, []);
 			}
 		}
 		
@@ -516,11 +525,13 @@ Typo.prototype = {
 			return false;
 		}
 		else {
-			if (this.hasFlag(word, "ONLYINCOMPOUND")) {
-				return false;
+			for (var i = 0, _len = ruleCodes.length; i < _len; i++) {
+				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
+					return true;
+				}
 			}
 			
-			return true;
+			return false;
 		}
 	},
 	
@@ -532,9 +543,11 @@ Typo.prototype = {
 	 * @return {Boolean}
 	 */
 	 
-	hasFlag : function (word, flag) {
+	hasFlag : function (word, flag, wordFlags) {
 		if (flag in this.flags) {
-			var wordFlags = this.dictionaryTable[word];
+			if (typeof wordFlags === 'undefined') {
+				var wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
+			}
 			
 			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
 				return true;

@@ -21,9 +21,13 @@ function testDictionary(dict) {
 	});
 	
 	test("Issue #21", function typo_german_issue_21() {
+		equal(dict.check("Paar"), true);
 		equal(dict.check("paar"), true);
+		equal(dict.check("auch"), true);
+		equal(dict.check("man"), true);
 		equal(dict.check("nutzen"), true);
 		equal(dict.check("paarbildung"), false);
+		equal(dict.check("Bild"), true);
 	});
 }
 

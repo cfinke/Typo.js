@@ -19,6 +19,10 @@ function testDictionary(dict) {
 	});
 	
 	test("Correct checking of words with no affixes", function () {
+		equal(dict.check("I"), true);
+		equal(dict.check("is"), true);
+		equal(dict.check("makes"), true);
+		equal(dict.check("example"), true);
 		equal(dict.check("a"), true);
 		equal(dict.check("aback"), true);
 		equal(dict.check("juicily"), true);

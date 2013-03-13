@@ -22,6 +22,8 @@ function testDictionary(dict) {
 	
 	test("Issue #21", function typo_german_issue_21() {
 		equal(dict.check("paar"), true);
+		equal(dict.check("nutzen"), true);
+		equal(dict.check("paarbildung"), false);
 	});
 }
 

@@ -53,10 +53,12 @@ function testDictionary(dict) {
 		equal(dict.check("  saxi  "), true);
 	});
 	
+	/*
 	test("Ligature", function () {
 		equal(dict.check("FILIAE"), true);
 		equal(dict.check("FILIÆ"), true);
 	});
+	*/
 }
 
 addEventListener( "load", run, false );

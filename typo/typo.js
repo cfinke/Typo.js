@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Typo is a JavaScript implementation of a spellchecker using hunspell-style 
  * dictionaries.
@@ -17,9 +19,11 @@
  * @returns {Typo} A Typo object.
  */
 
-var Typo = function (dictionary, affData, wordsData) {
+var Typo = function (dictionary, affData, wordsData, settings) {
+	settings = settings || {};
+	
 	/** Determines the method used for auto-loading .aff and .dic files. **/
-	this.platform = "chrome";
+	this.platform = settings.platform || "chrome"; 
 	
 	this.dictionary = null;
 	
@@ -31,7 +35,7 @@ var Typo = function (dictionary, affData, wordsData) {
 	
 	this.replacementTable = [];
 	
-	this.flags = {};
+	this.flags = settings.flags || {}; 
 	
 	if (dictionary) {
 		this.dictionary = dictionary;
@@ -39,6 +43,11 @@ var Typo = function (dictionary, affData, wordsData) {
 		if (this.platform == "chrome") {
 			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
 			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
+		} else {
+			var path = settings.dictionaryPath || '';
+			
+			if (!affData) affData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".aff");
+			if (!wordsData) wordsData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".dic");
 		}
 		
 		this.rules = this._parseAFF(affData);

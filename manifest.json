@@ -1,4 +1,5 @@
 {
+	"manifest_version": 2,
 	"name": "Typo.js Testing Harness",
 	"version": "1.0",
 	"description": "Load tests/index.html in the browser to run the test suite."

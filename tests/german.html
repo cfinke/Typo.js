@@ -2,37 +2,13 @@
 	<head>
 		<meta charset="ISO8859-1">
 		<title>Typo.js German Test Suite</title>
-		<link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen" />
-		<script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
-		<script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
+		<link rel="stylesheet" href="lib/qunit.css" type="text/css" media="screen" />
+		<script type="text/javascript" src="lib/jquery-1.9.1.js"></script>
+		<script type="text/javascript" src="lib/qunit.js"></script>
 		<script type="text/javascript" src="../typo/typo.js"></script>
-		<script type="text/javascript">
-			function run() {
-				var utilityDict = new Typo();
-				var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/de_DE/de_DE.aff"), "ISO8859-1");
-				var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/de_DE/de_DE.dic"), "ISO8859-1");
-				
-				var hashDict = new Typo("de_DE", affData, wordData);
-				testDictionary(hashDict);
-			}
-
-			function testDictionary(dict) {
-				test("Dictionary object attributes are properly set", function () {
-					equal(dict.dictionary, "de_DE");
-				});
-				
-				test("Capitalization is respected", function () {
-					equal(dict.check("Liebe"), true);
-					equal(dict.check("LIEBE"), true);
-					
-					// liebe is flagged with ONLYINCOMPOUND, but lieb has a suffix rule that generates liebe
-					equal(dict.check("liebe"), true);
-				});
-			}
-				
-		</script>
+		<script type="text/javascript" src="german.js"></script>
 	</head>
-	<body onload="run();">
+	<body>
 		<h1 id="qunit-header">Typo.js German Test Suite</h1>
 		<h2 id="qunit-banner"></h2>
 		<div id="qunit-testrunner-toolbar"></div>

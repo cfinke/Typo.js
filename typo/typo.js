@@ -11,11 +11,25 @@
  * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
  *                              "en_US". This is only used to auto-load dictionaries.
  * @param {String} [affData] The data from the dictionary's .aff file. If omitted
- *                           and the first argument is supplied, the .aff file will
- *                           be loaded automatically from lib/typo/dictionaries/[dictionary]/[dictionary].aff
+ *                           and the first argument is supplied, in "chrome" platform,
+ *                           the .aff file will be loaded automatically from
+ *                           lib/typo/dictionaries/[dictionary]/[dictionary].aff
+ *                           In other platform, it will be loaded from
+ *                           [setting.path]/dictionaries/[dictionary]/[dictionary].aff
  * @param {String} [wordsData] The data from the dictionary's .dic file. If omitted,
- *                             and the first argument is supplied, the .dic file will
- *                             be loaded automatically from lib/typo/dictionaries/[dictionary]/[dictionary].dic
+ *                           and the first argument is supplied, in "chrome" platform,
+ *                           the .dic file will be loaded automatically from
+ *                           lib/typo/dictionaries/[dictionary]/[dictionary].dic
+ *                           In other platform, it will be loaded from
+ *                           [setting.path]/dictionaries/[dictionary]/[dictionary].dic
+ * @param {Object} [settings] Constructor settings. Available properties are:
+ *                            {String} [platform]: "chrome" for Chrome Extension or other
+ *                              value for the usual web.
+ *                            {String} [path]: path to load dictionary from in non-chrome
+ *                              environment.
+ *                            {Object} [flags]: flag information.
+ *
+ *
  * @returns {Typo} A Typo object.
  */
 

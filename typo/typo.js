@@ -147,7 +147,10 @@ Typo.prototype = {
 		
 		var req = new XMLHttpRequest();
 		req.open("GET", path, false);
-		req.overrideMimeType("text/plain; charset=" + charset);
+		
+		if (req.overrideMimeType)
+			req.overrideMimeType("text/plain; charset=" + charset);
+		
 		req.send(null);
 		
 		return req.responseText;

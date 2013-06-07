@@ -612,7 +612,8 @@ Typo.prototype = {
 				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 				
 				if (this.check(correctedWord)) {
-					return [ correctedWord ];
+					callback( [ correctedWord ] );
+					return;
 				}
 			}
 		}

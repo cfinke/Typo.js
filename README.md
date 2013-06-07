@@ -18,7 +18,7 @@ var is_spelled_correctly = dictionary.check("mispelled");
 To get suggested corrections for a misspelled word, do this:
 	
 ```javascript
-var array_of_suggestions = dictionary.suggest("mispeling");
+dictionary.suggest("mispeling", function(array_of_suggestions){// do something here});
 
 // array_of_suggestions == ["misspelling", "dispelling", "misdealing", "misfiling", "misruling"]
 ```

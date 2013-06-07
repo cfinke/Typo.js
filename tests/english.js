@@ -132,11 +132,28 @@ function testDictionary(dict) {
 	});
 	
 	asyncTest("Replacement rules are implemented", function () {
-		dict.suggest("wagh", 5, function(suggestions){deepEqual(suggestions, [ "weigh" ]); });
-		dict.suggest("ceit", 5, function(suggestions){deepEqual(suggestions, [ "cat" ]); });
-		dict.suggest("seau", 5, function(suggestions){deepEqual(suggestions, [ "so" ]); });
-		dict.suggest("shaccable", 5, function(suggestions){deepEqual(suggestions, [ "shakable" ]); });
-		dict.suggest("soker", 5, function(suggestions){deepEqual(suggestions, [ "choker" ]); start(); });
+		var testCount = 0;
+			
+		dict.suggest("wagh", 5, function(suggestions){
+			deepEqual(suggestions, [ "weigh" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("ceit", 5, function(suggestions){
+			deepEqual(suggestions, [ "cat" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("seau", 5, function(suggestions){
+			deepEqual(suggestions, [ "so" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("shaccable", 5, function(suggestions){
+			deepEqual(suggestions, [ "shakable" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("soker", 5, function(suggestions){
+			deepEqual(suggestions, [ "choker" ]); 
+			if (++testCount == 5) start(); 
+		});
 	});
 	
 	test("Contractions", function () {

@@ -446,8 +446,6 @@ Typo.prototype = {
         // Remove comments
         data = data.replace(/^\t.*$/mg, "");
 
-        return data;
-
         // Trim each line
         data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
 

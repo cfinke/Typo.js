@@ -379,7 +379,6 @@ Typo.prototype = {
                 ruleCodesArray = this.parseRuleCodes(parts[1]);
 
                 // Save the ruleCodes for compound word situations.
-                //TODO: uses indexOf for array, IE8 supported?
                 if (!(this.flags.hasOwnProperty("NEEDAFFIX")) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1) {
                     addWord(word, ruleCodesArray);
                 }

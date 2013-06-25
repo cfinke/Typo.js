@@ -561,6 +561,10 @@ Typo.prototype = {
             capitalizedWord,
             lowercaseWord;
 
+        if (typeof this.dictionaryTable[trimmedWord] === "function") {
+            return false;
+        }
+
         if (this.checkExact(trimmedWord)) {
             return true;
         }

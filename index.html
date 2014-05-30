@@ -6,6 +6,30 @@
 	<style>
 	    span.typo {
 	        border-bottom: 2px dotted red;
+            position: relative;
+	    }
+	    ul.suggestions {
+	        position: absolute;
+	        left: 0;
+	        top: 100%;
+	        background-color: white;
+	        box-shadow: 1px 2px 4px 0 rgba(0,0,0,0.5);
+	        display: inline-block;
+	        z-index: 1;
+	        white-space: nowrap;
+	        margin: 0;
+	        padding: 0;
+	        list-style: none;
+	    }
+	    li.ignore {
+	        font-style: italic;
+	    }
+	    ul.suggestions li {
+	        padding: 2px 6px;
+	    }
+	    ul.suggestions li:hover {
+	        background-color: rgba(0,0,255,0.25);
+	        cursor: pointer;
 	    }
 	</style>
 </head>
@@ -100,10 +124,26 @@ And the mome raths outgrabe.
         editor.on('click', '.typo', function(evt){
             var typo = $(evt.target).text(),
                 start = Date.now(),
-                suggestions = dictionary.suggest( typo.toLowerCase() );
+                suggestions = dictionary.suggest( typo.toLowerCase() ),
+                list = $('<ul>').addClass('suggestions');
             
             console.log('elapsed', Date.now() - start);
-            alert( suggestions.length ? suggestions.join('\n') : 'No suggestions' );
+            $('.suggestions').remove();
+            if( suggestions.length ){
+                $.each(suggestions, function(){
+                    list.append( $('<li>').text(this) );
+                });
+            } else {            
+                list.append( $('<li>').addClass('ignore').text('No suggestions') );
+            }
+            list.appendTo(evt.target);
+        });
+        
+        editor.on('click', '.suggestions', function(evt){
+            var word = $(evt.target).closest('li').text();
+            if( !$(evt.target).closest('li').is('.ignore') ){
+                $(evt.target).closest('.typo').replaceWith(document.createTextNode(word));
+            }
         });
     </script>
 </body>

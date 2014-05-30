@@ -49,18 +49,34 @@ All mimsy were the borogoves,<br>
 And the mome raths outgrabe.
     </div>
     <button class="check">Find Typos</button>
+    <button class="clear">Clear Typos</button>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script src="typo/typo.js"></script>
     <script>
         var dictionary = new Typo("en_US", false, false, {platform: "web", dictionaryPath: "typo/dictionaries"}),
             check = $('.check'),
-            editor = $('.editor'),
-            textNodes = editor.contents()
-                              .filter(function(){
-                                return this.nodeType === 3;
-                              });
-            
+            clear = $('.clear'),
+            editor = $('.editor');
+        
+        function textNodesUnder(el){
+            var n, a=[], walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null,false);
+            while(n=walk.nextNode()) a.push(n);
+            return a;
+        }
+        
+        $.fn.textNodes = function(){
+            var list = textNodesUnder(this[0]);
+            return $(list);
+        }
+        
+        clear.on('click', function(){
+            $('.typo').each( function(){
+                $(this).replaceWith( $(this).text() );
+            } );
+        });
+        
         check.on('click', function(){
+            var textNodes = editor.textNodes();
             $.each(textNodes, function(nodeIndex){
                 var text = $(this).text(),
                     foundTypo = false,

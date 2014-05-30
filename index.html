@@ -100,7 +100,7 @@ And the mome raths outgrabe.
         editor.on('click', '.typo', function(evt){
             var typo = $(evt.target).text(),
                 start = Date.now(),
-                suggestions = dictionary.suggest( typo );
+                suggestions = dictionary.suggest( typo.toLowerCase() );
             
             console.log('elapsed', Date.now() - start);
             alert( suggestions.length ? suggestions.join('\n') : 'No suggestions' );

@@ -597,7 +597,7 @@ Typo.prototype = {
 	alphabet : "",
 	
 	suggest : function (word, limit) {
-		if (!limit) limit = 5;
+	    limit = limit || 5;
 		
 		if (this.check(word)) return [];
 		
@@ -643,61 +643,34 @@ Typo.prototype = {
 			
 			for (var ii = 0, _iilen = words.length; ii < _iilen; ii++) {
 				var word = words[ii];
-				
-				var splits = [];
 			
 				for (var i = 0, _len = word.length + 1; i < _len; i++) {
-					splits.push([ word.substring(0, i), word.substring(i, word.length) ]);
-				}
-			
-				var deletes = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
-				
+					var s = [ word.substring(0, i), word.substring(i) ];
+
 					if (s[1]) {
-						deletes.push(s[0] + s[1].substring(1));
+						rv.push(s[0] + s[1].substring(1));
 					}
-				}
-			
-				var transposes = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
 				
-					if (s[1].length > 1) {
-						transposes.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+				    // eliminate transpositions of identical letters
+					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+						rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
 					}
-				}
-			
-				var replaces = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
 				
 					if (s[1]) {
 						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							replaces.push(s[0] + self.alphabet[j] + s[1].substring(1));
+						    // eliminate replacement of a letter by itself
+						    if( self.alphabet[j] != s[1].substring(0,1) ){
+							    rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
+							}
 						}
 					}
-				}
-			
-				var inserts = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
 				
 					if (s[1]) {
 						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							replaces.push(s[0] + self.alphabet[j] + s[1]);
+							rv.push(s[0] + self.alphabet[j] + s[1]);
 						}
 					}
 				}
-			
-				rv = rv.concat(deletes);
-				rv = rv.concat(transposes);
-				rv = rv.concat(replaces);
-				rv = rv.concat(inserts);
 			}
 			
 			return rv;
@@ -760,7 +733,6 @@ Typo.prototype = {
 			
 			return rv;
 		}
-		
 		return correct(word);
 	}
 };

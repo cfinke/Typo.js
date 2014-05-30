@@ -71,11 +71,12 @@ And the mome raths outgrabe.
         
         clear.on('click', function(){
             $('.typo').each( function(){
-                $(this).replaceWith( $(this).text() );
+                $(this).replaceWith(document.createTextNode( $(this).text() ) );
             } );
         });
         
         check.on('click', function(){
+            clear.trigger('click');
             var textNodes = editor.textNodes();
             $.each(textNodes, function(nodeIndex){
                 var text = $(this).text(),
@@ -91,7 +92,7 @@ And the mome raths outgrabe.
                 
                 if( foundTypo ){
                     text = "<span>" + words.join('') + "</span>";
-                    $(this).replaceWith($(text));
+                    $(this).replaceWith($(text).contents());
                 }
             });
         });

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Typo.js Test</title>
+	<style>
+	    span.typo {
+	        border-bottom: 2px dotted red;
+	    }
+	</style>
+</head>
+<body>
+    <div class="editor" style="border: 1px solid #ccc;" contenteditable=true spellcheck=false>
+"Jabberwocky"<br>
+<br>
+'Twas brillig, and the slithy toves<br>
+Did gyre and gimble in the wabe;<br>
+All mimsy were the borogoves,<br>
+And the mome raths outgrabe.<br>
+<br>
+"Beware the Jabberwock, my son!<br>
+The jaws that bite, the claws that catch!<br>
+Beware the Jubjub bird, and shun<br>
+The frumious Bandersnatch!"<br>
+<br>
+He took his vorpal sword in hand:<br>
+Long time the manxome foe he sought—<br>
+So rested he by the Tumtum tree,<br>
+And stood awhile in thought.<br>
+<br>
+And as in uffish thought he stood,<br>
+The Jabberwock, with eyes of flame,<br>
+Came whiffling through the tulgey wood,<br>
+And burbled as it came!<br>
+<br>
+One, two! One, two! and through and through<br>
+The vorpal blade went snicker-snack!<br>
+He left it dead, and with its head<br>
+He went galumphing back.<br>
+<br>
+"And hast thou slain the Jabberwock?<br>
+Come to my arms, my beamish boy!<br>
+O frabjous day! Callooh! Callay!"<br>
+He chortled in his joy.<br>
+<br>
+'Twas brillig, and the slithy toves<br>
+Did gyre and gimble in the wabe;<br>
+All mimsy were the borogoves,<br>
+And the mome raths outgrabe.
+    </div>
+    <button class="check">Find Typos</button>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="typo/typo.js"></script>
+    <script>
+        var dictionary = new Typo("en_US", false, false, {platform: "web", dictionaryPath: "typo/dictionaries"}),
+            check = $('.check'),
+            editor = $('.editor'),
+            textNodes = editor.contents()
+                              .filter(function(){
+                                return this.nodeType === 3;
+                              });
+            
+        check.on('click', function(){
+            $.each(textNodes, function(nodeIndex){
+                var text = $(this).text(),
+                    foundTypo = false,
+                    words = text.match(/([a-zA-Z]+|[^a-zA-Z]+)/g); // text.split(/\s+/);
+                    
+                $.each(words, function(idx){
+                    if(this.match(/[a-zA-Z]+/) && !dictionary.check(this)){
+                        words[idx] = "<span class='typo'>" + this + "</span>";
+                        foundTypo = true;
+                    } 
+                });
+                
+                if( foundTypo ){
+                    text = "<span>" + words.join('') + "</span>";
+                    $(this).replaceWith($(text));
+                }
+            });
+        });
+        
+        editor.on('click', '.typo', function(evt){
+            var typo = $(evt.target).text(),
+                start = Date.now(),
+                suggestions = dictionary.suggest( typo );
+            
+            console.log('elapsed', Date.now() - start);
+            alert( suggestions.length ? suggestions.join('\n') : 'No suggestions' );
+        });
+    </script>
+</body>
+</html>

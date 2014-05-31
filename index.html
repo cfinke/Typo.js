@@ -12,7 +12,7 @@
 	        position: absolute;
 	        left: 0;
 	        top: 100%;
-	        background-color: white;
+	        background-color: #ffc;
 	        box-shadow: 1px 2px 4px 0 rgba(0,0,0,0.5);
 	        display: inline-block;
 	        z-index: 1;
@@ -142,7 +142,10 @@ And the mome raths outgrabe.
         editor.on('click', '.suggestions', function(evt){
             var word = $(evt.target).closest('li').text();
             if( !$(evt.target).closest('li').is('.ignore') ){
-                $(evt.target).closest('.typo').replaceWith(document.createTextNode(word));
+                var wordNode = document.createTextNode(word);
+                // by doing this rather than using replaceWidth the caret ends up
+                // AFTER the replaced word
+                $(evt.target).closest('.typo').before(wordNode).remove();
             }
         });
     </script>

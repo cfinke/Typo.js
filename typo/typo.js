@@ -34,6 +34,7 @@
  */
 
 var Typo = function (dictionary, affData, wordsData, settings) {
+  
 	settings = settings || {};
 	
 	/** Determines the method used for auto-loading .aff and .dic files. **/
@@ -88,7 +89,7 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 		// Get rid of any codes from the compound rule codes that are never used 
 		// (or that were special regex characters).  Not especially necessary... 
 		for (var i in this.compoundRuleCodes) {
-			if (this.compoundRuleCodes[i].length == 0) {
+			if (this.compoundRuleCodes[i].length === 0) {
 				delete this.compoundRuleCodes[i];
 			}
 		}
@@ -388,8 +389,6 @@ Typo.prototype = {
 		// Remove comments
 		data = data.replace(/^\t.*$/mg, "");
 		
-		return data;
-		
 		// Trim each line
 		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
 		
@@ -419,7 +418,7 @@ Typo.prototype = {
 			return flags;
 		}
 		else if (this.flags.FLAG === "num") {
-			return textCode.split(",");
+			return textCodes.split(",");
 		}
 	},
 	
@@ -598,8 +597,14 @@ Typo.prototype = {
 	
 	suggest : function (word, limit) {
 	    limit = limit || 5;
-		
+	    
 		if (this.check(word)) return [];
+	    if( this.memoized === undefined ){
+	        this.memoized = {};
+	    }
+		if( this.memoized[word] ){
+		    return this.memoized[word];
+		}
 		
 		// Check the replacement table.
 		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
@@ -690,10 +695,9 @@ Typo.prototype = {
 		
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
-			
-			var corrections = known(ed1).concat(known(ed2));
+			var ed1 = edits1([word]),
+			    ed2 = edits1(ed1),
+			    corrections = known(ed1).concat(known(ed2));
 			
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};
@@ -733,6 +737,7 @@ Typo.prototype = {
 			
 			return rv;
 		}
-		return correct(word);
+		this.memoized[word] = correct(word);
+		return this.memoized[word];
 	}
 };

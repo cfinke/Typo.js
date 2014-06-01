@@ -697,7 +697,7 @@ Typo.prototype = {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
 			var ed1 = edits1([word]),
 			    ed2 = edits1(ed1),
-			    corrections = known(ed1).concat(known(ed2));
+			    corrections = known(ed1.concat(ed2));
 			
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};

@@ -100,8 +100,9 @@ And the mome raths outgrabe.
         });
         
         check.on('click', function(){
+            var textNodes = editor.textNodes(),
+                start = Date.now();
             clear.trigger('click');
-            var textNodes = editor.textNodes();
             $.each(textNodes, function(nodeIndex){
                 var text = $(this).text(),
                     foundTypo = false,
@@ -119,6 +120,7 @@ And the mome raths outgrabe.
                     $(this).replaceWith($(text).contents());
                 }
             });
+            console.log("find typos", Date.now() - start);
         });
         
         editor.on('click', '.typo', function(evt){

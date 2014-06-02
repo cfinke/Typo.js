@@ -437,6 +437,7 @@ Typo.prototype = {
 		for (var i = 0, _len = entries.length; i < _len; i++) {
 			var entry = entries[i];
 			
+		    // Note: regex.test() is faster for Firefox but slower for Chrome
 			if (!entry.match || word.match(entry.match)) {
 				var newWord = word;
 				
@@ -541,6 +542,7 @@ Typo.prototype = {
 			// Check if this might be a compound word.
 			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
 				for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+				    // Note: regex.test() is faster for Firefox but slower for Chrome
 					if (word.match(this.compoundRules[i])) {
 						return true;
 					}
@@ -599,6 +601,7 @@ Typo.prototype = {
 	    limit = limit || 5;
 	    
 		if (this.check(word)) return [];
+		
 	    if( this.memoized === undefined ){
 	        this.memoized = {};
 	    }

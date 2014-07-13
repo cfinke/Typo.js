@@ -366,7 +366,7 @@ Typo.prototype = {
 				}
 			}
 			else {
-				addWord(word, []);
+				addWord(word.trim(), []);
 			}
 		}
 		

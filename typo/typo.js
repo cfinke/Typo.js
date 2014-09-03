@@ -25,7 +25,7 @@
  * @param {Object} [settings] Constructor settings. Available properties are:
  *                            {String} [platform]: "chrome" for Chrome Extension or other
  *                              value for the usual web.
- *                            {String} [path]: path to load dictionary from in non-chrome
+ *                            {String} [dictionaryPath]: path to load dictionary from in non-chrome
  *                              environment.
  *                            {Object} [flags]: flag information.
  *

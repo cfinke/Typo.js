@@ -54,7 +54,7 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 	if (dictionary) {
 		this.dictionary = dictionary;
 		
-		if (this.platform == "chrome") {
+		if (window.chrome && window.chrome.extension) {
 			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
 			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
 		} else {

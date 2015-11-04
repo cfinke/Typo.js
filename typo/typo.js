@@ -10,24 +10,22 @@
  *
  * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
  *                              "en_US". This is only used to auto-load dictionaries.
- * @param {String} [affData] The data from the dictionary's .aff file. If omitted
- *                           and the first argument is supplied, in "chrome" platform,
- *                           the .aff file will be loaded automatically from
- *                           lib/typo/dictionaries/[dictionary]/[dictionary].aff
- *                           In other platform, it will be loaded from
- *                           [setting.path]/dictionaries/[dictionary]/[dictionary].aff
- * @param {String} [wordsData] The data from the dictionary's .dic file. If omitted,
- *                           and the first argument is supplied, in "chrome" platform,
- *                           the .dic file will be loaded automatically from
- *                           lib/typo/dictionaries/[dictionary]/[dictionary].dic
- *                           In other platform, it will be loaded from
- *                           [setting.path]/dictionaries/[dictionary]/[dictionary].dic
- * @param {Object} [settings] Constructor settings. Available properties are:
- *                            {String} [platform]: "chrome" for Chrome Extension or other
- *                              value for the usual web.
- *                            {String} [dictionaryPath]: path to load dictionary from in non-chrome
+ * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
+ *                              and Typo.js is being used in a Chrome extension, the .aff
+ *                              file will be loaded automatically from
+ *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
+ *                              In other environments, it will be loaded from
+ *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
+ * @param {String} [wordsData]  The data from the dictionary's .dic file. If omitted
+ *                              and Typo.js is being used in a Chrome extension, the .dic
+ *                              file will be loaded automatically from
+ *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
+ *                              In other environments, it will be loaded from
+ *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
+ * @param {Object} [settings]   Constructor settings. Available properties are:
+ *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
  *                              environment.
- *                            {Object} [flags]: flag information.
+ *                              {Object} [flags]: flag information.
  *
  *
  * @returns {Typo} A Typo object.
@@ -35,9 +33,6 @@
 
 var Typo = function (dictionary, affData, wordsData, settings) {
 	settings = settings || {};
-	
-	/** Determines the method used for auto-loading .aff and .dic files. **/
-	this.platform = settings.platform || "chrome"; 
 	
 	this.dictionary = null;
 	
@@ -54,7 +49,7 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 	if (dictionary) {
 		this.dictionary = dictionary;
 		
-		if (this.platform == "chrome") {
+		if ('chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
 			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
 			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
 		} else {

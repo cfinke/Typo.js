@@ -32,6 +32,7 @@
  */
 
 var Typo = function (dictionary, affData, wordsData, settings) {
+  
 	settings = settings || {};
 	
 	this.dictionary = null;
@@ -83,7 +84,7 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 		// Get rid of any codes from the compound rule codes that are never used 
 		// (or that were special regex characters).  Not especially necessary... 
 		for (var i in this.compoundRuleCodes) {
-			if (this.compoundRuleCodes[i].length == 0) {
+			if (this.compoundRuleCodes[i].length === 0) {
 				delete this.compoundRuleCodes[i];
 			}
 		}
@@ -383,8 +384,6 @@ Typo.prototype = {
 		// Remove comments
 		data = data.replace(/^\t.*$/mg, "");
 		
-		return data;
-		
 		// Trim each line
 		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
 		
@@ -414,7 +413,7 @@ Typo.prototype = {
 			return flags;
 		}
 		else if (this.flags.FLAG === "num") {
-			return textCode.split(",");
+			return textCodes.split(",");
 		}
 	},
 	
@@ -433,6 +432,7 @@ Typo.prototype = {
 		for (var i = 0, _len = entries.length; i < _len; i++) {
 			var entry = entries[i];
 			
+		    // Note: regex.test() is faster for Firefox but slower for Chrome
 			if (!entry.match || word.match(entry.match)) {
 				var newWord = word;
 				
@@ -537,6 +537,7 @@ Typo.prototype = {
 			// Check if this might be a compound word.
 			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
 				for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+				    // Note: regex.test() is faster for Firefox but slower for Chrome
 					if (word.match(this.compoundRules[i])) {
 						return true;
 					}
@@ -592,9 +593,16 @@ Typo.prototype = {
 	alphabet : "",
 	
 	suggest : function (word, limit) {
-		if (!limit) limit = 5;
-		
+	    limit = limit || 5;
+	    
 		if (this.check(word)) return [];
+		
+	    if( this.memoized === undefined ){
+	        this.memoized = {};
+	    }
+		if( this.memoized[word] ){
+		    return this.memoized[word];
+		}
 		
 		// Check the replacement table.
 		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
@@ -638,61 +646,34 @@ Typo.prototype = {
 			
 			for (var ii = 0, _iilen = words.length; ii < _iilen; ii++) {
 				var word = words[ii];
-				
-				var splits = [];
 			
 				for (var i = 0, _len = word.length + 1; i < _len; i++) {
-					splits.push([ word.substring(0, i), word.substring(i, word.length) ]);
-				}
-			
-				var deletes = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
-				
+					var s = [ word.substring(0, i), word.substring(i) ];
+
 					if (s[1]) {
-						deletes.push(s[0] + s[1].substring(1));
+						rv.push(s[0] + s[1].substring(1));
 					}
-				}
-			
-				var transposes = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
 				
-					if (s[1].length > 1) {
-						transposes.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+				    // eliminate transpositions of identical letters
+					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+						rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
 					}
-				}
-			
-				var replaces = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
 				
 					if (s[1]) {
 						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							replaces.push(s[0] + self.alphabet[j] + s[1].substring(1));
+						    // eliminate replacement of a letter by itself
+						    if( self.alphabet[j] != s[1].substring(0,1) ){
+							    rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
+							}
 						}
 					}
-				}
-			
-				var inserts = [];
-			
-				for (var i = 0, _len = splits.length; i < _len; i++) {
-					var s = splits[i];
 				
 					if (s[1]) {
 						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							replaces.push(s[0] + self.alphabet[j] + s[1]);
+							rv.push(s[0] + self.alphabet[j] + s[1]);
 						}
 					}
 				}
-			
-				rv = rv.concat(deletes);
-				rv = rv.concat(transposes);
-				rv = rv.concat(replaces);
-				rv = rv.concat(inserts);
 			}
 			
 			return rv;
@@ -712,10 +693,9 @@ Typo.prototype = {
 		
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
-			
-			var corrections = known(ed1).concat(known(ed2));
+			var ed1 = edits1([word]),
+			    ed2 = edits1(ed1),
+			    corrections = known(ed1.concat(ed2));
 			
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};
@@ -755,7 +735,7 @@ Typo.prototype = {
 			
 			return rv;
 		}
-		
-		return correct(word);
+		this.memoized[word] = correct(word);
+		return this.memoized[word];
 	}
 };

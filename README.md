@@ -3,10 +3,16 @@ Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.  Its
 Usage
 =====
 
-To use Typo, simply include the typo.js file in your extension's background page, and then initialize the dictionary like so:
+To use Typo in an extension, simply include the typo.js file in your extension's background page, and then initialize the dictionary like so:
 
 ```javascript
 var dictionary = new Typo("en_US");
+```
+
+To use Typo in a standard web application you need to pass a settings object, explicitly setting the platform (to something other than "chrome" (the default -- which works for chrome _extensions_), and you also need to provide a path to the folder containing to desired dictionary.
+
+```javascript
+var dictionary = new Typo("en_US", false, false, {platform: "web", dictionaryPath: "typo/dictionaries"}),
 ```
 
 To check if a word is spelled correctly, do this:

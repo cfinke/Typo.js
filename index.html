@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Typo.js Test</title>
+	<style>
+	    span.typo {
+	        border-bottom: 2px dotted red;
+            position: relative;
+	    }
+	    ul.suggestions {
+	        position: absolute;
+	        left: 0;
+	        top: 100%;
+	        background-color: #ffc;
+	        box-shadow: 1px 2px 4px 0 rgba(0,0,0,0.5);
+	        display: inline-block;
+	        z-index: 1;
+	        white-space: nowrap;
+	        margin: 0;
+	        padding: 0;
+	        list-style: none;
+	    }
+	    li.ignore {
+	        font-style: italic;
+	    }
+	    ul.suggestions li {
+	        padding: 2px 6px;
+	    }
+	    ul.suggestions li:hover {
+	        background-color: rgba(0,0,255,0.25);
+	        cursor: pointer;
+	    }
+	</style>
+</head>
+<body>
+    <div class="editor" style="border: 1px solid #ccc;" contenteditable=true spellcheck=false>
+"Jabberwocky"<br>
+<br>
+'Twas brillig, and the slithy toves<br>
+Did gyre and gimble in the wabe;<br>
+All mimsy were the borogoves,<br>
+And the mome raths outgrabe.<br>
+<br>
+"Beware the Jabberwock, my son!<br>
+The jaws that bite, the claws that catch!<br>
+Beware the Jubjub bird, and shun<br>
+The frumious Bandersnatch!"<br>
+<br>
+He took his vorpal sword in hand:<br>
+Long time the manxome foe he sought—<br>
+So rested he by the Tumtum tree,<br>
+And stood awhile in thought.<br>
+<br>
+And as in uffish thought he stood,<br>
+The Jabberwock, with eyes of flame,<br>
+Came whiffling through the tulgey wood,<br>
+And burbled as it came!<br>
+<br>
+One, two! One, two! and through and through<br>
+The vorpal blade went snicker-snack!<br>
+He left it dead, and with its head<br>
+He went galumphing back.<br>
+<br>
+"And hast thou slain the Jabberwock?<br>
+Come to my arms, my beamish boy!<br>
+O frabjous day! Callooh! Callay!"<br>
+He chortled in his joy.<br>
+<br>
+'Twas brillig, and the slithy toves<br>
+Did gyre and gimble in the wabe;<br>
+All mimsy were the borogoves,<br>
+And the mome raths outgrabe.
+    </div>
+    <button class="check">Find Typos</button>
+    <button class="clear">Clear Typos</button>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="typo/typo.js"></script>
+    <script>
+        var dictionary = new Typo("en_US", false, false, {platform: "web", dictionaryPath: "typo/dictionaries"}),
+            check = $('.check'),
+            clear = $('.clear'),
+            editor = $('.editor');
+        
+        function textNodesUnder(el){
+            var n, a=[], walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null,false);
+            while(n=walk.nextNode()) a.push(n);
+            return a;
+        }
+        
+        $.fn.textNodes = function(){
+            var list = textNodesUnder(this[0]);
+            return $(list);
+        }
+        
+        clear.on('click', function(){
+            $('.typo').each( function(){
+                $(this).replaceWith(document.createTextNode( $(this).text() ) );
+            } );
+        });
+        
+        check.on('click', function(){
+            var textNodes = editor.textNodes(),
+                start = Date.now();
+            clear.trigger('click');
+            $.each(textNodes, function(nodeIndex){
+                var text = $(this).text(),
+                    foundTypo = false,
+                    words = text.match(/([a-zA-Z]+|[^a-zA-Z]+)/g); // text.split(/\s+/);
+                    
+                $.each(words, function(idx){
+                    if(this.match(/[a-zA-Z]+/) && !dictionary.check(this)){
+                        words[idx] = "<span class='typo'>" + this + "</span>";
+                        foundTypo = true;
+                    } 
+                });
+                
+                if( foundTypo ){
+                    text = "<span>" + words.join('') + "</span>";
+                    $(this).replaceWith($(text).contents());
+                }
+            });
+            console.log("find typos", Date.now() - start);
+        });
+        
+        editor.on('click', '.typo', function(evt){
+            var typo = $(evt.target).text(),
+                start = Date.now(),
+                suggestions = dictionary.suggest( typo.toLowerCase() ),
+                list = $('<ul>').addClass('suggestions');
+            
+            console.log('elapsed', Date.now() - start);
+            $('.suggestions').remove();
+            if( suggestions.length ){
+                $.each(suggestions, function(){
+                    list.append( $('<li>').text(this) );
+                });
+            } else {            
+                list.append( $('<li>').addClass('ignore').text('No suggestions') );
+            }
+            list.appendTo(evt.target);
+        });
+        
+        editor.on('click', '.suggestions', function(evt){
+            var word = $(evt.target).closest('li').text();
+            if( !$(evt.target).closest('li').is('.ignore') ){
+                var wordNode = document.createTextNode(word);
+                // by doing this rather than using replaceWidth the caret ends up
+                // AFTER the replaced word
+                $(evt.target).closest('.typo').before(wordNode).remove();
+            }
+        });
+    </script>
+</body>
+</html>

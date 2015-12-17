@@ -384,17 +384,6 @@ Typo.prototype = {
 		data = data.replace(/^\t.*$/mg, "");
 		
 		return data;
-		
-		// Trim each line
-		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
-		
-		// Remove blank lines.
-		data = data.replace(/\n{2,}/g, "\n");
-		
-		// Trim the entire string
-		data = data.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-		
-		return data;
 	},
 	
 	parseRuleCodes : function (textCodes) {

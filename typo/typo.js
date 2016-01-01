@@ -53,7 +53,15 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
 			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
 		} else {
-			var path = settings.dictionaryPath || '';
+			if (settings.dictionaryPath) {
+				var path = settings.dictionaryPath;
+			}
+			else if (typeof __dirname !== 'undefined') {
+				var path = __dirname + '/dictionaries';
+			}
+			else {
+				var path = './dictionaries';
+			}
 			
 			if (!affData) affData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".aff");
 			if (!wordsData) wordsData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".dic");
@@ -138,17 +146,43 @@ Typo.prototype = {
 	 */
 	
 	_readFile : function (path, charset) {
-		if (!charset) charset = "ISO8859-1";
+		if (!charset) charset = "utf8";
 		
-		var req = new XMLHttpRequest();
-		req.open("GET", path, false);
+		if (typeof XMLHttpRequest !== 'undefined') {
+			var req = new XMLHttpRequest();
+			req.open("GET", path, false);
 		
-		if (req.overrideMimeType)
-			req.overrideMimeType("text/plain; charset=" + charset);
+			if (req.overrideMimeType)
+				req.overrideMimeType("text/plain; charset=" + charset);
 		
-		req.send(null);
-		
-		return req.responseText;
+			req.send(null);
+			
+			return req.responseText;
+		}
+		else if (typeof require !== 'undefined') {
+			// Node.js
+			var fs = require("fs");
+			
+			try {
+				if (fs.existsSync(path)) {
+					var stats = fs.statSync(path);
+					
+					var fileDescriptor = fs.openSync(path, 'r');
+					
+					var buffer = new Buffer(stats.size);
+					
+					fs.readSync(fileDescriptor, buffer, 0, buffer.length, null);
+					
+					return buffer.toString(charset, 0, buffer.length);
+				}
+				else {
+					console.log("Path " + path + " does not exist.");
+				}
+			} catch (e) {
+				console.log(e);
+				return '';
+			}
+		}
 	},
 	
 	/**

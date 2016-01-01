@@ -748,3 +748,8 @@ Typo.prototype = {
 		return correct(word);
 	}
 };
+
+// Support for use as a node.js module.
+if (typeof module !== 'undefined') {
+	module.exports = Typo;
+}

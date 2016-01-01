@@ -1,4 +1,4 @@
-Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.  Its main use is to allow Chrome extensions to perform client-side spellchecking.
+Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.
 
 Usage
 =====
@@ -7,6 +7,13 @@ To use Typo, simply include the typo.js file in your extension's background page
 
 ```javascript
 var dictionary = new Typo("en_US");
+```
+
+If using in node.js, load it like so:
+
+```javascript
+var Typo = require("typo");
+var dictionary = new Typo([...]);
 ```
 
 To check if a word is spelled correctly, do this:

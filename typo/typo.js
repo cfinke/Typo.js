@@ -568,7 +568,7 @@ Typo.prototype = {
 			
 			return false;
 		}
-		else {
+		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
 			for (var i = 0, _len = ruleCodes.length; i < _len; i++) {
 				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
 					return true;

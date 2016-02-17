@@ -45,6 +45,10 @@ Typo.js has full support for the following Hunspell affix flags:
 
 _Note: The manifest.json file in the root directory of the project is there to simplify testing, as it allows you to load all of the files in the Typo project as a Chrome extension. It doesn't have any purpose if you're using Typo.js in your own project._
 
+Demo
+====
+There's a live demo of Typo.js at http://www.chrisfinke.com/files/typo-demo/ and a complete Node.js example file at examples/node/index.js.
+
 Licensing
 =========
 

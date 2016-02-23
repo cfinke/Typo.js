@@ -13,9 +13,19 @@ function testDictionary(dict) {
 		equal(dict.dictionary, "en_US");
 	});
 	
-	test("Suggestions", function () {
-		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
-		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
+	asyncTest("Suggestions", function () {
+		var testCount = 0;
+			
+		dict.suggest("spitting", 5, function(suggestions){ 
+			deepEqual(suggestions, [ ], "Correctly spelled words receive no suggestions."); 
+			if (++testCount == 2) start();
+		});
+		
+		dict.suggest("speling", 5, function(suggestions){ 
+			deepEqual(suggestions, [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
+			if (++testCount == 2) start();
+		});
+
 	});
 	
 	test("Correct checking of words with no affixes", function () {
@@ -121,12 +131,29 @@ function testDictionary(dict) {
 		equal(dict.check("acceptability's's"), false);
 	});
 	
-	test("Replacement rules are implemented", function () {
-		deepEqual(dict.suggest("wagh"), [ "weigh" ]);
-		deepEqual(dict.suggest("ceit"), [ "cat" ]);
-		deepEqual(dict.suggest("seau"), [ "so" ]);
-		deepEqual(dict.suggest("shaccable"), [ "shakable" ]);
-		deepEqual(dict.suggest("soker"), [ "choker" ]);
+	asyncTest("Replacement rules are implemented", function () {
+		var testCount = 0;
+			
+		dict.suggest("wagh", 5, function(suggestions){
+			deepEqual(suggestions, [ "weigh" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("ceit", 5, function(suggestions){
+			deepEqual(suggestions, [ "cat" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("seau", 5, function(suggestions){
+			deepEqual(suggestions, [ "so" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("shaccable", 5, function(suggestions){
+			deepEqual(suggestions, [ "shakable" ]); 
+			if (++testCount == 5) start(); 
+		});
+		dict.suggest("soker", 5, function(suggestions){
+			deepEqual(suggestions, [ "choker" ]); 
+			if (++testCount == 5) start(); 
+		});
 	});
 	
 	test("Contractions", function () {

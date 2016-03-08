@@ -2,5 +2,8 @@
 	"manifest_version": 2,
 	"name": "Typo.js Testing Harness",
 	"version": "1.0",
-	"description": "Load tests/index.html in the browser to run the test suite."
+	"description": "Load tests/index.html in the browser to run the test suite.",
+	"browser_action": {
+		"default_popup": "tests/index.html"
+	}
 }

@@ -142,22 +142,43 @@ Typo.prototype = {
 	 * 
 	 * @param {String} path The path (relative) to the file.
 	 * @param {String} [charset="ISO8859-1"] The expected charset of the file
-	 * @returns string The file data.
+	 * @param {Boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
+	 * files are read synchronously.
+	 * @returns string The file data if async is false, otherwise a promise object. If running node.js, the data is
+	 * always returned.
 	 */
 	
-	_readFile : function (path, charset) {
+	_readFile : function (path, charset, async) {
 		if (!charset) charset = "utf8";
 		
 		if (typeof XMLHttpRequest !== 'undefined') {
+			var promise;
 			var req = new XMLHttpRequest();
-			req.open("GET", path, false);
+			req.open("GET", path, async);
 		
+			if (async) {
+				promise = new Promise(function(resolve, reject) {
+					req.onload = function() {
+						if (req.status === 200) {
+							resolve(req.responseText);
+						}
+						else {
+							reject(req.statusText);
+						}
+					};
+					
+					req.onerror = function() {
+						reject(req.statusText);
+					}
+				});
+			}
+
 			if (req.overrideMimeType)
 				req.overrideMimeType("text/plain; charset=" + charset);
 		
 			req.send(null);
 			
-			return req.responseText;
+			return async ? promise : req.responseText;
 		}
 		else if (typeof require !== 'undefined') {
 			// Node.js

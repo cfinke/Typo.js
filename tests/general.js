@@ -18,6 +18,21 @@ function run() {
 		equal(empty_dict._removeAffixComments("\t"), "", "Tabs are treated as whitespace.");
 		equal(empty_dict._removeAffixComments("\n\t \t\n\n"), "", "All whitespace is treated the same.");
 	});
+	
+	test("_readFile can load a file synchronously", function() {
+		var data = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+		ok(data && data.length > 0);
+	});
+	
+	asyncTest("_readFile can load a file asynchronously", function(assert) {
+		empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"), null, true).then(function(data) {
+			assert.ok(data && data.length > 0);
+			QUnit.start();
+		}, function(err) {
+			QUnit.pushFailure(err);
+			QUnit.start();
+		});
+	});
 }
 
 addEventListener( "load", run, false );

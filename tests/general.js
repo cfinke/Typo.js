@@ -33,6 +33,31 @@ function run() {
 			QUnit.start();
 		});
 	});
+	
+	function checkLoadedDict(dict) {
+		ok(dict);
+		ok(dict.compoundRules.length > 0);
+		ok(dict.replacementTable.length > 0);
+	}
+	
+	test("Dictionary instantiated with preloaded data is setup correctly", function() {
+		var affData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
+		var wordData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+		var dict = new Typo("en_US", affData, wordData);
+		checkLoadedDict(dict);
+	});
+	
+	test("Synchronous load of dictionary data", function() {
+		var dict = new Typo("en_US");
+		checkLoadedDict(dict);
+	});
+	
+	asyncTest("Asynchronous load of dictionary data", function() {
+		var dict = new Typo("en_US", null, null, { asyncLoad: true, loadedCallback: function() {
+			checkLoadedDict(dict);
+			QUnit.start();
+		}});
+	});
 }
 
 addEventListener( "load", run, false );

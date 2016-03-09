@@ -26,7 +26,10 @@
  *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
  *                              environment.
  *                              {Object} [flags]: flag information.
- *
+ *								{Boolean} [asyncLoad]: If true, affData and wordsData will be loaded
+ *								asynchronously.
+ *								{Function} [loadedCallback]: Called when both affData and wordsData
+ *								have been loaded. Only used if asyncLoad is set to true.	
  *
  * @returns {Typo} A Typo object.
  */
@@ -46,13 +49,21 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 	
 	this.flags = settings.flags || {}; 
 	
+	var self = this;
+	
 	if (dictionary) {
 		this.dictionary = dictionary;
 		
-		if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
-			if (!affData) affData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"));
-			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
-		} else {
+		// If the data is preloaded, just setup the Typo object.
+		if (affData && wordsData) {
+			setup();
+		}
+		// Loading data for Chrome extentions.
+		else if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
+			if (!affData) readDataFile(chrome.extension.getURL("typo/dictionaries/" + dictionary + "/" + dictionary + ".aff"), setAffData);
+			if (!wordsData) readDataFile(chrome.extension.getURL("typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
+		}
+		else {
 			if (settings.dictionaryPath) {
 				var path = settings.dictionaryPath;
 			}
@@ -63,59 +74,95 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 				var path = './dictionaries';
 			}
 			
-			if (!affData) affData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".aff");
-			if (!wordsData) wordsData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".dic");
+			if (!affData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
+			if (!wordsData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
 		}
 		
-		this.rules = this._parseAFF(affData);
+	}
+	
+	function readDataFile(url, setFunc) {
+		var response = self._readFile(url, null, settings.asyncLoad);
+		
+		if (settings.asyncLoad) {
+			response.then(function(data) {
+				setFunc(data);
+			});
+		}
+		else {
+			setFunc(response);
+		}
+	}
+
+	function setAffData(data) {
+		affData = data;
+
+		if (wordsData) {
+			setup();
+		}
+	}
+
+	function setWordsData(data) {
+		wordsData = data;
+
+		if (affData) {
+			setup();
+		}
+	}
+
+	function setup() {
+		self.rules = self._parseAFF(affData);
 		
 		// Save the rule codes that are used in compound rules.
-		this.compoundRuleCodes = {};
+		self.compoundRuleCodes = {};
 		
-		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
-			var rule = this.compoundRules[i];
+		for (var i = 0, _len = self.compoundRules.length; i < _len; i++) {
+			var rule = self.compoundRules[i];
 			
 			for (var j = 0, _jlen = rule.length; j < _jlen; j++) {
-				this.compoundRuleCodes[rule[j]] = [];
+				self.compoundRuleCodes[rule[j]] = [];
 			}
 		}
 		
-		// If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
+		// If we add this ONLYINCOMPOUND flag to self.compoundRuleCodes, then _parseDIC
 		// will do the work of saving the list of words that are compound-only.
-		if ("ONLYINCOMPOUND" in this.flags) {
-			this.compoundRuleCodes[this.flags.ONLYINCOMPOUND] = [];
+		if ("ONLYINCOMPOUND" in self.flags) {
+			self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
 		}
 		
-		this.dictionaryTable = this._parseDIC(wordsData);
+		self.dictionaryTable = self._parseDIC(wordsData);
 		
 		// Get rid of any codes from the compound rule codes that are never used 
 		// (or that were special regex characters).  Not especially necessary... 
-		for (var i in this.compoundRuleCodes) {
-			if (this.compoundRuleCodes[i].length == 0) {
-				delete this.compoundRuleCodes[i];
+		for (var i in self.compoundRuleCodes) {
+			if (self.compoundRuleCodes[i].length == 0) {
+				delete self.compoundRuleCodes[i];
 			}
 		}
 		
 		// Build the full regular expressions for each compound rule.
 		// I have a feeling (but no confirmation yet) that this method of 
 		// testing for compound words is probably slow.
-		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
-			var ruleText = this.compoundRules[i];
+		for (var i = 0, _len = self.compoundRules.length; i < _len; i++) {
+			var ruleText = self.compoundRules[i];
 			
 			var expressionText = "";
 			
 			for (var j = 0, _jlen = ruleText.length; j < _jlen; j++) {
 				var character = ruleText[j];
 				
-				if (character in this.compoundRuleCodes) {
-					expressionText += "(" + this.compoundRuleCodes[character].join("|") + ")";
+				if (character in self.compoundRuleCodes) {
+					expressionText += "(" + self.compoundRuleCodes[character].join("|") + ")";
 				}
 				else {
 					expressionText += character;
 				}
 			}
-			
-			this.compoundRules[i] = new RegExp(expressionText, "i");
+
+			self.compoundRules[i] = new RegExp(expressionText, "i");
+		}
+		
+		if (settings.asyncLoad && settings.loadedCallback) {
+			settings.loadedCallback();
 		}
 	}
 	

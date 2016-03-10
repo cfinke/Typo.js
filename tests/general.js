@@ -58,6 +58,17 @@ function run() {
 			QUnit.start();
 		}});
 	});
+	
+	test("Public API throws exception if called before dictionary is loaded", function() {
+		var expected = function(err) {
+			return err === "Dictionary not loaded.";
+		};
+		
+		throws(empty_dict.check, expected);
+		throws(empty_dict.checkExact, expected);
+		throws(empty_dict.hasFlag, expected);
+		throws(empty_dict.check, expected);
+	});
 }
 
 addEventListener( "load", run, false );

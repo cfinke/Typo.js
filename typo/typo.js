@@ -49,6 +49,7 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 	
 	this.flags = settings.flags || {}; 
 	
+	this.loaded = false;
 	var self = this;
 	
 	if (dictionary) {
@@ -160,6 +161,8 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 
 			self.compoundRules[i] = new RegExp(expressionText, "i");
 		}
+		
+		self.loaded = true;
 		
 		if (settings.asyncLoad && settings.loadedCallback) {
 			settings.loadedCallback();
@@ -574,6 +577,10 @@ Typo.prototype = {
 	 */
 	
 	check : function (aWord) {
+		if (!this.loaded) {
+			throw "Dictionary not loaded.";
+		}
+		
 		// Remove leading and trailing whitespace
 		var trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 		
@@ -622,6 +629,10 @@ Typo.prototype = {
 	 */
 	
 	checkExact : function (word) {
+		if (!this.loaded) {
+			throw "Dictionary not loaded.";
+		}
+		
 		var ruleCodes = this.dictionaryTable[word];
 		
 		if (typeof ruleCodes === 'undefined') {
@@ -656,6 +667,10 @@ Typo.prototype = {
 	 */
 	 
 	hasFlag : function (word, flag, wordFlags) {
+		if (!this.loaded) {
+			throw "Dictionary not loaded.";
+		}
+		
 		if (flag in this.flags) {
 			if (typeof wordFlags === 'undefined') {
 				var wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
@@ -683,6 +698,10 @@ Typo.prototype = {
 	alphabet : "",
 	
 	suggest : function (word, limit) {
+		if (!this.loaded) {
+			throw "Dictionary not loaded.";
+		}
+		
 		if (!limit) limit = 5;
 		
 		if (this.check(word)) return [];

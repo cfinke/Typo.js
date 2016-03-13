@@ -146,7 +146,7 @@ Typo.prototype = {
 	 */
 	
 	_readFile : function (path, charset) {
-		if (!charset) charset = "utf8";
+		charset = charset || "utf8";
 		
 		if (typeof XMLHttpRequest !== 'undefined') {
 			var req = new XMLHttpRequest();
@@ -615,7 +615,7 @@ Typo.prototype = {
 	alphabet : "",
 	
 	suggest : function (word, limit) {
-		if (!limit) limit = 5;
+		limit = limit || 5;
 		
 		if (this.check(word)) return [];
 		

@@ -711,7 +711,7 @@ Typo.prototype = {
 			var ed1 = edits1([word]);
 			var ed2 = edits1(ed1);
 			
-			var corrections = known(ed1).concat(known(ed2));
+			var corrections = known(ed1.concat(ed2));
 			
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};

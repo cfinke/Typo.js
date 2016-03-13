@@ -697,7 +697,7 @@ Typo.prototype = {
 		function known(words) {
 			var rv = [];
 			
-			for (var i = 0; i < words.length; i++) {
+			for (var i = 0, _len = words.length; i < _len; i++) {
 				if (self.check(words[i])) {
 					rv.push(words[i]);
 				}

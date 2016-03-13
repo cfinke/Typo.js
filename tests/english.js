@@ -137,6 +137,12 @@ function testDictionary(dict) {
 		equal(dict.check("didn'ts"), false);
 		equal(dict.check("he're"), false);
 	});
+	
+	test("Capitalizations are handled properly.", function () {
+		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
+		deepEqual(dict.suggest("CEIT"), [ "CENT", "CHIT", "CERT", "CIT", "CIT" ]);
+	});
+		
 }
 
 addEventListener( "load", run, false );

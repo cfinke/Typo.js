@@ -1,9 +1,18 @@
-'use strict';
+/* globals chrome: false */
+/* globals __dirname: false */
+/* globals require: false */
+/* globals Buffer: false */
+/* globals module: false */
 
 /**
  * Typo is a JavaScript implementation of a spellchecker using hunspell-style 
  * dictionaries.
  */
+
+var Typo;
+
+(function () {
+"use strict";
 
 /**
  * Typo constructor.
@@ -31,7 +40,7 @@
  * @returns {Typo} A Typo object.
  */
 
-var Typo = function (dictionary, affData, wordsData, settings) {
+Typo = function (dictionary, affData, wordsData, settings) {
 	settings = settings || {};
 	
 	this.dictionary = null;
@@ -46,6 +55,11 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 	
 	this.flags = settings.flags || {}; 
 	
+	var path;
+	
+	// Loop-control variables.
+	var i, j, _len, _jlen;
+	
 	if (dictionary) {
 		this.dictionary = dictionary;
 		
@@ -54,13 +68,13 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 			if (!wordsData) wordsData = this._readFile(chrome.extension.getURL("lib/typo/dictionaries/" + dictionary + "/" + dictionary + ".dic"));
 		} else {
 			if (settings.dictionaryPath) {
-				var path = settings.dictionaryPath;
+				path = settings.dictionaryPath;
 			}
 			else if (typeof __dirname !== 'undefined') {
-				var path = __dirname + '/dictionaries';
+				path = __dirname + '/dictionaries';
 			}
 			else {
-				var path = './dictionaries';
+				path = './dictionaries';
 			}
 			
 			if (!affData) affData = this._readFile(path + "/" + dictionary + "/" + dictionary + ".aff");
@@ -72,10 +86,10 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 		// Save the rule codes that are used in compound rules.
 		this.compoundRuleCodes = {};
 		
-		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+		for (i = 0, _len = this.compoundRules.length; i < _len; i++) {
 			var rule = this.compoundRules[i];
 			
-			for (var j = 0, _jlen = rule.length; j < _jlen; j++) {
+			for (j = 0, _jlen = rule.length; j < _jlen; j++) {
 				this.compoundRuleCodes[rule[j]] = [];
 			}
 		}
@@ -90,8 +104,8 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 		
 		// Get rid of any codes from the compound rule codes that are never used 
 		// (or that were special regex characters).  Not especially necessary... 
-		for (var i in this.compoundRuleCodes) {
-			if (this.compoundRuleCodes[i].length == 0) {
+		for (i in this.compoundRuleCodes) {
+			if (this.compoundRuleCodes[i].length === 0) {
 				delete this.compoundRuleCodes[i];
 			}
 		}
@@ -99,12 +113,12 @@ var Typo = function (dictionary, affData, wordsData, settings) {
 		// Build the full regular expressions for each compound rule.
 		// I have a feeling (but no confirmation yet) that this method of 
 		// testing for compound words is probably slow.
-		for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+		for (i = 0, _len = this.compoundRules.length; i < _len; i++) {
 			var ruleText = this.compoundRules[i];
 			
 			var expressionText = "";
 			
-			for (var j = 0, _jlen = ruleText.length; j < _jlen; j++) {
+			for (j = 0, _jlen = ruleText.length; j < _jlen; j++) {
 				var character = ruleText[j];
 				
 				if (character in this.compoundRuleCodes) {
@@ -131,7 +145,9 @@ Typo.prototype = {
 	
 	load : function (obj) {
 		for (var i in obj) {
-			this[i] = obj[i];
+			if (obj.hasOwnProperty(i)) {
+				this[i] = obj[i];
+			}
 		}
 		
 		return this;
@@ -195,13 +211,16 @@ Typo.prototype = {
 	_parseAFF : function (data) {
 		var rules = {};
 		
+		var line, subline, numEntries, lineParts;
+		var i, j, _len, _jlen;
+		
 		// Remove comment lines
 		data = this._removeAffixComments(data);
 		
 		var lines = data.split("\n");
 		
-		for (var i = 0, _len = lines.length; i < _len; i++) {
-			var line = lines[i];
+		for (i = 0, _len = lines.length; i < _len; i++) {
+			line = lines[i];
 			
 			var definitionParts = line.split(/\s+/);
 			
@@ -210,14 +229,14 @@ Typo.prototype = {
 			if (ruleType == "PFX" || ruleType == "SFX") {
 				var ruleCode = definitionParts[1];
 				var combineable = definitionParts[2];
-				var numEntries = parseInt(definitionParts[3], 10);
+				numEntries = parseInt(definitionParts[3], 10);
 				
 				var entries = [];
 				
-				for (var j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
-					var line = lines[j];
+				for (j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
+					subline = lines[j];
 					
-					var lineParts = line.split(/\s+/);
+					lineParts = subline.split(/\s+/);
 					var charactersToRemove = lineParts[2];
 					
 					var additionParts = lineParts[3].split("/");
@@ -260,19 +279,19 @@ Typo.prototype = {
 				i += numEntries;
 			}
 			else if (ruleType === "COMPOUNDRULE") {
-				var numEntries = parseInt(definitionParts[1], 10);
+				numEntries = parseInt(definitionParts[1], 10);
 				
-				for (var j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
-					var line = lines[j];
+				for (j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
+					line = lines[j];
 					
-					var lineParts = line.split(/\s+/);
+					lineParts = line.split(/\s+/);
 					this.compoundRules.push(lineParts[1]);
 				}
 				
 				i += numEntries;
 			}
 			else if (ruleType === "REP") {
-				var lineParts = line.split(/\s+/);
+				lineParts = line.split(/\s+/);
 				
 				if (lineParts.length === 3) {
 					this.replacementTable.push([ lineParts[1], lineParts[2] ]);
@@ -556,10 +575,12 @@ Typo.prototype = {
 	checkExact : function (word) {
 		var ruleCodes = this.dictionaryTable[word];
 		
+		var i, _len;
+		
 		if (typeof ruleCodes === 'undefined') {
 			// Check if this might be a compound word.
 			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
-				for (var i = 0, _len = this.compoundRules.length; i < _len; i++) {
+				for (i = 0, _len = this.compoundRules.length; i < _len; i++) {
 					if (word.match(this.compoundRules[i])) {
 						return true;
 					}
@@ -569,7 +590,7 @@ Typo.prototype = {
 			return false;
 		}
 		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
-			for (var i = 0, _len = ruleCodes.length; i < _len; i++) {
+			for (i = 0, _len = ruleCodes.length; i < _len; i++) {
 				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
 					return true;
 				}
@@ -590,7 +611,7 @@ Typo.prototype = {
 	hasFlag : function (word, flag, wordFlags) {
 		if (flag in this.flags) {
 			if (typeof wordFlags === 'undefined') {
-				var wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
+				wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
 			}
 			
 			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
@@ -659,10 +680,12 @@ Typo.prototype = {
 		function edits1(words) {
 			var rv = [];
 			
-			for (var ii = 0, _iilen = words.length; ii < _iilen; ii++) {
+			var ii, i, j, _iilen, _len, _jlen;
+			
+			for (ii = 0, _iilen = words.length; ii < _iilen; ii++) {
 				var word = words[ii];
 				
-				for (var i = 0, _len = word.length + 1; i < _len; i++) {
+				for (i = 0, _len = word.length + 1; i < _len; i++) {
 					var s = [ word.substring(0, i), word.substring(i) ];
 				
 					if (s[1]) {
@@ -675,7 +698,7 @@ Typo.prototype = {
 					}
 
 					if (s[1]) {
-						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
 							// Eliminate replacement of a letter by itself
 							if (self.alphabet[j] != s[1].substring(0,1)){
 								rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
@@ -684,7 +707,7 @@ Typo.prototype = {
 					}
 
 					if (s[1]) {
-						for (var j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
 							rv.push(s[0] + self.alphabet[j] + s[1]);
 						}
 					}
@@ -713,10 +736,12 @@ Typo.prototype = {
 			
 			var corrections = known(ed1.concat(ed2));
 			
+			var i, _len;
+			
 			// Sort the edits based on how many different ways they were created.
 			var weighted_corrections = {};
 			
-			for (var i = 0, _len = corrections.length; i < _len; i++) {
+			for (i = 0, _len = corrections.length; i < _len; i++) {
 				if (!(corrections[i] in weighted_corrections)) {
 					weighted_corrections[corrections[i]] = 1;
 				}
@@ -727,8 +752,10 @@ Typo.prototype = {
 			
 			var sorted_corrections = [];
 			
-			for (var i in weighted_corrections) {
-				sorted_corrections.push([ i, weighted_corrections[i] ]);
+			for (i in weighted_corrections) {
+				if (weighted_corrections.hasOwnProperty(i)) {
+					sorted_corrections.push([ i, weighted_corrections[i] ]);
+				}
 			}
 			
 			function sorter(a, b) {
@@ -743,7 +770,7 @@ Typo.prototype = {
 			
 			var rv = [];
 			
-			for (var i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
+			for (i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
 				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
 					rv.push(sorted_corrections[i][0]);
 				}
@@ -755,6 +782,7 @@ Typo.prototype = {
 		return correct(word);
 	}
 };
+})();
 
 // Support for use as a node.js module.
 if (typeof module !== 'undefined') {

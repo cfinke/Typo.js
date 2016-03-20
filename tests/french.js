@@ -5,6 +5,10 @@ function run() {
 	
 	var hashDict = new Typo("fr_FR", affData, wordData);
 	testDictionary(hashDict);
+
+	var dict = new Typo("fr_FR", null, null, { dictionaryPath : "tests/dictionaries", asyncLoad : true, loadedCallback : function () {
+		testDictionary(dict);
+	}});
 }
 
 function testDictionary(dict) {

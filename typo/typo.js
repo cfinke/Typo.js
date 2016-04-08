@@ -59,6 +59,8 @@ Typo = function (dictionary, affData, wordsData, settings) {
 	
 	this.flags = settings.flags || {}; 
 	
+	this.memoized = {};
+
 	this.loaded = false;
 	
 	var self = this;
@@ -732,6 +734,16 @@ Typo.prototype = {
 		}
 
 		limit = limit || 5;
+
+		if (this.memoized.hasOwnProperty(word)) {
+			var memoizedLimit = this.memoized[word]['limit'];
+
+			// Only return the cached list if it's big enough or if there weren't enough suggestions
+			// to fill a smaller limit.
+			if (limit <= memoizedLimit || this.memoized[word]['suggestions'].length < memoizedLimit) {
+				return this.memoized[word]['suggestions'].slice(0, limit);
+			}
+		}
 		
 		if (this.check(word)) return [];
 		
@@ -890,7 +902,12 @@ Typo.prototype = {
 			return rv;
 		}
 		
-		return correct(word);
+		this.memoized[word] = {
+			'suggestions': correct(word),
+			'limit': limit
+		};
+
+		return this.memoized[word]['suggestions'];
 	}
 };
 })();

@@ -18,8 +18,25 @@ function testDictionary(dict) {
 	});
 	
 	test("Suggestions", function () {
+		deepEqual(dict.suggest("speling", 3), [ "spelling", "spieling", "spewing" ]);
+
+		// Repeated calls function properly.
+		deepEqual(dict.suggest("speling", 1), [ "spelling" ]);
 		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
+		deepEqual(dict.suggest("speling", 2), [ "spelling", "spieling" ]);
+		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
+
+		// Requesting more suggestions than will be returned doesn't break anything.
+		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "smarting", "starting", "sprang", "sporting", "parting", "spatting", "sparking", "sparling", "sparring", "spurting" ]);
+		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "smarting", "starting", "sprang", "sporting", "parting", "spatting", "sparking", "sparling", "sparring", "spurting" ]);
+		deepEqual(dict.suggest("spartang", 1), [ "spartan" ]);
+
 		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
+		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
+
+		// Words that are object properties don't break anything.
+		deepEqual(dict.suggest("length"), [ ], "Correctly spelled words receive no suggestions.");
+		deepEqual(dict.suggest("length"), [ ], "Correctly spelled words receive no suggestions.");
 	});
 	
 	test("Correct checking of words with no affixes", function () {

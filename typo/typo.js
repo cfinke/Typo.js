@@ -431,11 +431,17 @@ Typo.prototype = {
 		
 		function addWord(word, rules) {
 			// Some dictionaries will list the same word multiple times with different rule sets.
-			if (!(word in dictionaryTable) || typeof dictionaryTable[word] != 'object') {
-				dictionaryTable[word] = [];
+			if (!dictionaryTable.hasOwnProperty(word)) {
+				dictionaryTable[word] = null;
 			}
 			
-			dictionaryTable[word].push(rules);
+			if (rules.length > 0) {
+				if (dictionaryTable[word] === null) {
+					dictionaryTable[word] = [];
+				}
+
+				dictionaryTable[word].push(rules);
+			}
 		}
 		
 		// The first line is the number of words in the dictionary.
@@ -675,8 +681,11 @@ Typo.prototype = {
 					}
 				}
 			}
-			
-			return false;
+		}
+		else if (ruleCodes === null) {
+			// a null (but not undefined) value for an entry in the dictionary table
+			// means that the word is in the dictionary but has no flags.
+			return true;
 		}
 		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
 			for (i = 0, _len = ruleCodes.length; i < _len; i++) {
@@ -684,9 +693,9 @@ Typo.prototype = {
 					return true;
 				}
 			}
-			
-			return false;
 		}
+
+		return false;
 	},
 	
 	/**

@@ -1,5 +1,12 @@
-define(function(require, exports, module) {
-
+(function (root, factory) {
+  if(typeof define === "function" && define.amd) {
+    define(["typo"], factory);
+  } else if(typeof module === "object" && module.exports) {
+    module.exports = factory(require("typo"));
+  } else {
+    root.typo = factory(root.typo);
+  }
+}(this, function() {
 	/* globals chrome: false */
 	/* globals __dirname: false */
 	/* globals require: false */
@@ -923,8 +930,6 @@ define(function(require, exports, module) {
 	};
 	})();
 
-	// Support for use as a node.js module.
-	if (typeof module !== 'undefined') {
-		module.exports = Typo;
-	}
-});
+	return Typo;
+
+}));

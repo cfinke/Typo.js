@@ -53,7 +53,7 @@
 	 * @returns {Typo} A Typo object.
 	 */
 
-	Typo = function (dictionary, affData, wordsData, settings) {
+	Typo = function (dictionary, affData, wordsData, wordsDelta, settings) {
 		settings = settings || {};
 
 		this.dictionary = null;
@@ -97,6 +97,7 @@
 
 				if (!affData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
 				if (!wordsData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
+				if (!wordsDelta) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic_delta"), setWordsDelta);
 			}
 			else {
 				if (settings.dictionaryPath) {
@@ -111,6 +112,7 @@
 
 				if (!affData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
 				if (!wordsData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
+				if (!wordsDelta) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic_delta", setWordsDelta);
 			}
 		}
 
@@ -130,7 +132,7 @@
 		function setAffData(data) {
 			affData = data;
 
-			if (wordsData) {
+			if (wordsData && wordsDelta) {
 				setup();
 			}
 		}
@@ -138,7 +140,15 @@
 		function setWordsData(data) {
 			wordsData = data;
 
-			if (affData) {
+			if (affData && wordsDelta) {
+				setup();
+			}
+		}
+
+		function setWordsDelta(data) {
+			wordsDelta = data;
+
+			if (affData && wordsData) {
 				setup();
 			}
 		}
@@ -163,7 +173,7 @@
 				self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
 			}
 
-			self.dictionaryTable = self._parseDIC(wordsData);
+			self.dictionaryTable = self._parseDIC(wordsData + wordsDelta);
 
 			// Get rid of any codes from the compound rule codes that are never used
 			// (or that were special regex characters).  Not especially necessary...

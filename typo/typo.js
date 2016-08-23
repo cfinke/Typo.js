@@ -755,7 +755,7 @@ Typo.prototype = {
 			// to fill a smaller limit.
 			if (limit <= memoizedLimit || this.memoized[word]['suggestions'].length < memoizedLimit) {
 				var res=this.memoized[word]['suggestions'].slice(0, limit);
-				if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r], res);
+				if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r]);
 				if (doneFunc) doneFunc(res);
 				return;
 			}
@@ -774,7 +774,9 @@ Typo.prototype = {
 				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 				
 				if (this.check(correctedWord)) {
-					return [ correctedWord ];
+				  if (progressFunc) progressFunc([correctedWord]);
+				  if (doneFunc) doneFunc([correctedWord]);
+					return;
 				}
 			}
 		}
@@ -904,21 +906,11 @@ Typo.prototype = {
 		function known(id) {
 			// verify we are still in the same operation
 			if (id!==self.id) {
-				//console.log('different context - aborting');
+				console.log('different context - aborting');
 				return; // another suggest was called so abort
 			}
 
-			while(true) {
-				if (ed1.length===0 && ed2.length===0) {
-					founds=sortCorrections(founds);
-					self.memoized[word] = {
-						'suggestions': founds,
-						'limit': limit
-					}
-					if (doneFunc) doneFunc(founds);
-					return; // we're done
-				}
-	
+			while(ed1.length!==0 || ed2.length!==0) {
 				var next;
 				if (ed2.length===0) {
 					next=ed1.shift();
@@ -930,9 +922,9 @@ Typo.prototype = {
 				if (founds.indexOf(next)===-1 && self.check(next)) {
 					var abort;
 					founds.push(next);
-					if (progressFunc) abort=progressFunc(next, founds);
+					if (progressFunc) abort=progressFunc(next);
 					if (abort===false) { 
-						//console.log('suggestions aborted');
+						console.log('suggestions aborted');
 						return; // aborted
 					}
 					if (founds.length===limit) {
@@ -942,12 +934,19 @@ Typo.prototype = {
 				
 				// do a sleep(0) every 200 ms
 				if (Date.now()-timer>200) {
-					//console.log('sleep 0');
+					console.log('sleep 0');
 					timer=Date.now();
 					setTimeout(function(id) { known(id); }, 0, id); // we continue after a sleep
 					return;
 				} 
 			}
+
+			founds=sortCorrections(founds);
+			self.memoized[word] = {
+				'suggestions': founds,
+				'limit': limit
+			}
+			if (doneFunc) doneFunc(founds);
 		}
 
 		ed1=edits(word);

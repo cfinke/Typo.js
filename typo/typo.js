@@ -904,7 +904,7 @@ Typo.prototype = {
 		function known(id) {
 			// verify we are still in the same operation
 			if (id!==self.id) {
-				console.log('different context - aborting');
+				//console.log('different context - aborting');
 				return; // another suggest was called so abort
 			}
 
@@ -932,7 +932,7 @@ Typo.prototype = {
 					founds.push(next);
 					if (progressFunc) abort=progressFunc(next, founds);
 					if (abort===false) { 
-						console.log('suggestions aborted');
+						//console.log('suggestions aborted');
 						return; // aborted
 					}
 					if (founds.length===limit) {
@@ -942,7 +942,7 @@ Typo.prototype = {
 				
 				// do a sleep(0) every 200 ms
 				if (Date.now()-timer>200) {
-					console.log('sleep 0');
+					//console.log('sleep 0');
 					timer=Date.now();
 					setTimeout(function(id) { known(id); }, 0, id); // we continue after a sleep
 					return;

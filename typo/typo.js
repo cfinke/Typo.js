@@ -737,11 +737,15 @@ Typo.prototype = {
 	
 	alphabet : "",
 	
-	suggest : function (word, limit) {
+	suggest : function (word, limit, doneFunc, progressFunc) {
 		if (!this.loaded) {
 			throw "Dictionary not loaded.";
 		}
-
+		
+		this.id=(this.id || 0) + 1; // id identify the current async op
+		// calling suggest with argument will stop the current search if there is now
+		if (arguments.length===0) return;
+		
 		limit = limit || 5;
 
 		if (this.memoized.hasOwnProperty(word)) {
@@ -750,11 +754,17 @@ Typo.prototype = {
 			// Only return the cached list if it's big enough or if there weren't enough suggestions
 			// to fill a smaller limit.
 			if (limit <= memoizedLimit || this.memoized[word]['suggestions'].length < memoizedLimit) {
-				return this.memoized[word]['suggestions'].slice(0, limit);
+				var res=this.memoized[word]['suggestions'].slice(0, limit);
+				if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r], res);
+				if (doneFunc) doneFunc(res);
+				return;
 			}
 		}
 		
-		if (this.check(word)) return [];
+		if (this.check(word)) {
+			if (doneFunc) doneFunc([]);
+			return;
+		}
 		
 		// Check the replacement table.
 		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
@@ -771,6 +781,7 @@ Typo.prototype = {
 		
 		var self = this;
 		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
+		var ed1=[], ed2=[], founds=[], timer=Date.now();
 		
 		/*
 		if (!self.alphabet) {
@@ -793,65 +804,7 @@ Typo.prototype = {
 		}
 		*/
 		
-		function edits1(words) {
-			var rv = [];
-			
-			var ii, i, j, _iilen, _len, _jlen;
-			
-			for (ii = 0, _iilen = words.length; ii < _iilen; ii++) {
-				var word = words[ii];
-				
-				for (i = 0, _len = word.length + 1; i < _len; i++) {
-					var s = [ word.substring(0, i), word.substring(i) ];
-				
-					if (s[1]) {
-						rv.push(s[0] + s[1].substring(1));
-					}
-					
-					// Eliminate transpositions of identical letters
-					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-						rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
-					}
-
-					if (s[1]) {
-						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							// Eliminate replacement of a letter by itself
-							if (self.alphabet[j] != s[1].substring(0,1)){
-								rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
-							}
-						}
-					}
-
-					if (s[1]) {
-						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							rv.push(s[0] + self.alphabet[j] + s[1]);
-						}
-					}
-				}
-			}
-			
-			return rv;
-		}
-		
-		function known(words) {
-			var rv = [];
-			
-			for (var i = 0, _len = words.length; i < _len; i++) {
-				if (self.check(words[i])) {
-					rv.push(words[i]);
-				}
-			}
-			
-			return rv;
-		}
-		
-		function correct(word) {
-			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
-			
-			var corrections = known(ed1.concat(ed2));
-			
+		function sortCorrections(corrections) {
 			var i, _len;
 			
 			// Sort the edits based on how many different ways they were created.
@@ -865,7 +818,7 @@ Typo.prototype = {
 					weighted_corrections[corrections[i]] += 1;
 				}
 			}
-			
+		
 			var sorted_corrections = [];
 			
 			for (i in weighted_corrections) {
@@ -907,16 +860,98 @@ Typo.prototype = {
 					rv.push(sorted_corrections[i][0]);
 				}
 			}
+
+			return rv;
+		}	
+	
+		// Get the edit-distance-1 of this word.
+		function edits(word) {
+			var rv = [];
+			var i, j, _len, _jlen;
+
 			
+			for (i = 0, _len = word.length + 1; i < _len; i++) {
+				var s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1]) {
+					rv.push(s[0] + s[1].substring(1));
+				}
+				
+				// Eliminate transpositions of identical letters
+				if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+					rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+				}
+
+				if (s[1]) {
+					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+						// Eliminate replacement of a letter by itself
+						if (self.alphabet[j] != s[1].substring(0,1)){
+							rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
+						}
+					}
+				}
+
+				if (s[1]) {
+					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+						rv.push(s[0] + self.alphabet[j] + s[1]);
+					}
+				}
+			}
+
 			return rv;
 		}
 		
-		this.memoized[word] = {
-			'suggestions': correct(word),
-			'limit': limit
-		};
+		function known(id) {
+			// verify we are still in the same operation
+			if (id!==self.id) {
+				console.log('different context - aborting');
+				return; // another suggest was called so abort
+			}
 
-		return this.memoized[word]['suggestions'];
+			while(true) {
+				if (ed1.length===0 && ed2.length===0) {
+					founds=sortCorrections(founds);
+					self.memoized[word] = {
+						'suggestions': founds,
+						'limit': limit
+					}
+					if (doneFunc) doneFunc(founds);
+					return; // we're done
+				}
+	
+				var next;
+				if (ed2.length===0) {
+					next=ed1.shift();
+					ed2=[next].concat(edits(next));
+				}
+				
+				next=ed2.shift();
+
+				if (founds.indexOf(next)===-1 && self.check(next)) {
+					var abort;
+					founds.push(next);
+					if (progressFunc) abort=progressFunc(next, founds);
+					if (abort===false) { 
+						console.log('suggestions aborted');
+						return; // aborted
+					}
+					if (founds.length===limit) {
+						ed1=ed2=[]; // finish gracefully
+					}
+				}
+				
+				// do a sleep(0) every 200 ms
+				if (Date.now()-timer>200) {
+					console.log('sleep 0');
+					timer=Date.now();
+					setTimeout(function(id) { known(id); }, 0, id); // we continue after a sleep
+					return;
+				} 
+			}
+		}
+
+		ed1=edits(word);
+		known(self.id); // start the search
 	}
 };
 })();

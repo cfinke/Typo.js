@@ -743,7 +743,7 @@ Typo.prototype = {
 		}
 		
 		this.id=(this.id || 0) + 1; // id identify the current async op
-		// calling suggest with argument will stop the current search if there is now
+		// calling suggest with no arguments will stop the current search if there is now
 		if (arguments.length===0) return;
 		
 		limit = limit || 5;

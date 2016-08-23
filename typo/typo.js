@@ -934,7 +934,7 @@ Typo.prototype = {
 				
 				// do a sleep(0) every 200 ms
 				if (Date.now()-timer>200) {
-					console.log('sleep 0');
+					//console.log('sleep 0');
 					timer=Date.now();
 					setTimeout(function(id) { known(id); }, 0, id); // we continue after a sleep
 					return;

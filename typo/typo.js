@@ -913,11 +913,11 @@ Typo.prototype = {
 			while(ed1.length!==0 || ed2.length!==0) {
 				var next;
 				if (ed2.length===0) {
-					next=ed1.shift();
+					next=ed1.pop();
 					ed2=[next].concat(edits(next));
 				}
 				
-				next=ed2.shift();
+				next=ed2.pop();
 
 				if (founds.indexOf(next)===-1 && self.check(next)) {
 					var abort;

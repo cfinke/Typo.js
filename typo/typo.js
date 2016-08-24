@@ -774,8 +774,8 @@ Typo.prototype = {
 				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 				
 				if (this.check(correctedWord)) {
-				  if (progressFunc) progressFunc([correctedWord]);
-				  if (doneFunc) doneFunc([correctedWord]);
+					if (progressFunc) progressFunc([correctedWord]);
+					if (doneFunc) doneFunc([correctedWord]);
 					return;
 				}
 			}

@@ -866,9 +866,9 @@ Typo.prototype = {
 			return rv;
 		}	
 	
-		// Get the edit-distance-1 of this word.
-		function edits(word) {
-			var rv = [];
+		// Get the edit-distance-1 of this word into rv
+		function edits(rv, word) {
+			rv.length=0; // clear it
 			var i, j, _len, _jlen;
 
 			
@@ -914,7 +914,7 @@ Typo.prototype = {
 				var next;
 				if (ed2.length===0) {
 					next=ed1.pop();
-					ed2=edits(next);
+					edits(ed2, next);
 					ed2.push(next);
 				}
 				
@@ -950,7 +950,7 @@ Typo.prototype = {
 			if (doneFunc) doneFunc(founds);
 		}
 
-		ed1=edits(word);
+		edits(ed1, word);
 		known(self.id); // start the search
 	}
 };

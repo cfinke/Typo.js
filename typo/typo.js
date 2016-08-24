@@ -914,7 +914,8 @@ Typo.prototype = {
 				var next;
 				if (ed2.length===0) {
 					next=ed1.pop();
-					ed2=[next].concat(edits(next));
+					ed2=edits(next);
+					ed2.push(next);
 				}
 				
 				next=ed2.pop();

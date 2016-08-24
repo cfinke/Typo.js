@@ -928,16 +928,14 @@ Typo.prototype = {
 						console.log('suggestions aborted');
 						return; // aborted
 					}
-					if (founds.length===limit) {
-						ed1=ed2=[]; // finish gracefully
-					}
+					if (founds.length===limit) ed1.length=ed2.length=0; // finish gracefully
 				}
 				
 				// do a sleep(0) every 200 ms
 				if (Date.now()-timer>200) {
 					//console.log('sleep 0');
 					timer=Date.now();
-					setTimeout(function(id) { known(id); }, 0, id); // we continue after a sleep
+					setTimeout(function(id) { known(id); }, 0, id);
 					return;
 				} 
 			}

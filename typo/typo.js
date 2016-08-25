@@ -738,53 +738,56 @@ Typo.prototype = {
 	alphabet : "",
 	
 	suggest : function (word, limit, doneFunc, progressFunc) {
-		if (!this.loaded) {
+		var self = this;
+		
+		if (!self.loaded) {
 			throw "Dictionary not loaded.";
 		}
 		
-		this.id=(this.id || 0) + 1; // id identify the current async op
+		// id identify the current async op
+		if (!self.id || self.id>100000) self.id=0;
+		self.id++;
+		
 		// calling suggest with no arguments will stop the current search if there is now
 		if (arguments.length===0) return;
 		
 		limit = limit || 5;
 
-		if (this.memoized.hasOwnProperty(word)) {
-			var memoizedLimit = this.memoized[word]['limit'];
+		if (self.memoized.hasOwnProperty(word)) {
+			var memoizedLimit = self.memoized[word]['limit'];
 
 			// Only return the cached list if it's big enough or if there weren't enough suggestions
 			// to fill a smaller limit.
-			if (limit <= memoizedLimit || this.memoized[word]['suggestions'].length < memoizedLimit) {
-				var res=this.memoized[word]['suggestions'].slice(0, limit);
+			if (limit <= memoizedLimit || self.memoized[word]['suggestions'].length < memoizedLimit) {
+				var res=self.memoized[word]['suggestions'].slice(0, limit);
 				if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r]);
 				if (doneFunc) doneFunc(res);
 				return;
 			}
 		}
 		
-		if (this.check(word)) {
+		if (self.check(word)) {
 			if (doneFunc) doneFunc([]);
 			return;
 		}
 		
 		// Check the replacement table.
-		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
-			var replacementEntry = this.replacementTable[i];
+		for (var i = 0, _len = self.replacementTable.length; i < _len; i++) {
+			var replacementEntry = self.replacementTable[i];
 			
 			if (word.indexOf(replacementEntry[0]) !== -1) {
 				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 				
-				if (this.check(correctedWord)) {
-					if (progressFunc) progressFunc([correctedWord]);
-					if (doneFunc) doneFunc([correctedWord]);
-					return;
+				if (self.check(correctedWord)) {
+          if (progressFunc) progressFunc([correctedWord]);
+          if (doneFunc) doneFunc([correctedWord]);
+				  return;
 				}
 			}
 		}
 		
-		var self = this;
 		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
-		var ed1=[], ed2=[], founds=[], timer=Date.now();
-		
+
 		/*
 		if (!self.alphabet) {
 			// Use the alphabet as implicitly defined by the words in the dictionary.
@@ -806,6 +809,9 @@ Typo.prototype = {
 		}
 		*/
 		
+    // define the local context for async ops
+		var localId=self.id, ed1=[], ed2=[], founds=[];
+
 		function sortCorrections(corrections) {
 			var i, _len;
 			
@@ -866,12 +872,10 @@ Typo.prototype = {
 			return rv;
 		}	
 	
-		// Get the edit-distance-1 of this word into rv
-		function edits(rv, word) {
-			rv.length=0; // clear it
-			var i, j, _len, _jlen;
+		// Get the edit-distance-1 of word 
+		function edits(word) {
+			var rv=[], i, j, _len, _jlen;
 
-			
 			for (i = 0, _len = word.length + 1; i < _len; i++) {
 				var s = [ word.substring(0, i), word.substring(i) ];
 			
@@ -903,39 +907,39 @@ Typo.prototype = {
 			return rv;
 		}
 		
-		function known(id) {
+		function known() {
 			// verify we are still in the same operation
-			if (id!==self.id) {
-				console.log('different context - aborting');
-				return; // another suggest was called so abort
+			if (localId!==self.id) {
+				//console.log('different context - aborting');
+				ed1.length=ed2.length=0; // encourage GC
+				return; 
 			}
+			
+			var startTime=Date.now();
 
 			while(ed1.length!==0 || ed2.length!==0) {
 				var next;
 				if (ed2.length===0) {
 					next=ed1.pop();
-					edits(ed2, next);
-					ed2.push(next);
+					ed2=edits(next);
+				} else {
+          next=ed2.pop();
 				}
-				
-				next=ed2.pop();
 
 				if (founds.indexOf(next)===-1 && self.check(next)) {
-					var abort;
-					founds.push(next);
-					if (progressFunc) abort=progressFunc(next);
-					if (abort===false) { 
-						console.log('suggestions aborted');
-						return; // aborted
+					if (progressFunc && progressFunc(next)===false) { 
+						// console.log('suggestions aborted');
+						ed1.length=ed2.length=0; // encourage GC
+						return; // abort requested
 					}
+					founds.push(next);
 					if (founds.length===limit) ed1.length=ed2.length=0; // finish gracefully
 				}
 				
 				// do a sleep(0) every 200 ms
-				if (Date.now()-timer>200) {
+				if (Date.now()-startTime>200) {
 					//console.log('sleep 0');
-					timer=Date.now();
-					setTimeout(function(id) { known(id); }, 0, id);
+					setTimeout(function(id) { known(); }, 0); // we continue after a sleep
 					return;
 				} 
 			}
@@ -948,7 +952,7 @@ Typo.prototype = {
 			if (doneFunc) doneFunc(founds);
 		}
 
-		edits(ed1, word);
+		ed1=edits(word);
 		known(self.id); // start the search
 	}
 };

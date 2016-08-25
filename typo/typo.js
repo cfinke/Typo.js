@@ -779,9 +779,9 @@ Typo.prototype = {
 				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 				
 				if (self.check(correctedWord)) {
-          if (progressFunc) progressFunc([correctedWord]);
-          if (doneFunc) doneFunc([correctedWord]);
-				  return;
+					if (progressFunc) progressFunc([correctedWord]);
+					if (doneFunc) doneFunc([correctedWord]);
+					return;
 				}
 			}
 		}
@@ -809,7 +809,7 @@ Typo.prototype = {
 		}
 		*/
 		
-    // define the local context for async ops
+		// define the local context for async ops
 		var localId=self.id, ed1=[], ed2=[], founds=[];
 
 		function sortCorrections(corrections) {

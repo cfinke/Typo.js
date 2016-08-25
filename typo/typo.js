@@ -939,7 +939,7 @@ Typo.prototype = {
 				// do a sleep(0) every 200 ms
 				if (Date.now()-startTime>200) {
 					//console.log('sleep 0');
-					setTimeout(function(id) { known(); }, 0); // we continue after a sleep
+					setTimeout(known, 0); // we continue after a sleep
 					return;
 				} 
 			}

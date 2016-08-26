@@ -739,6 +739,9 @@ Typo.prototype = {
 	
 	suggest : function (word, limit, doneFunc, progressFunc) {
 		var self = this;
+
+		// define the local context for async ops
+		var localId, ed1=[], ed2=[], founds=[];
 		
 		if (!self.loaded) {
 			throw "Dictionary not loaded.";
@@ -746,7 +749,7 @@ Typo.prototype = {
 		
 		// id identify the current async op
 		if (!self.id || self.id>100000) self.id=0;
-		self.id++;
+		localId=++self.id;
 		
 		// calling suggest with no arguments will stop the current search if there is now
 		if (arguments.length===0) return;
@@ -779,13 +782,16 @@ Typo.prototype = {
 				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 				
 				if (self.check(correctedWord)) {
-					if (progressFunc) progressFunc([correctedWord]);
-					if (doneFunc) doneFunc([correctedWord]);
-					return;
+					founds.push(correctedWord);
+					if (progressFunc) progressFunc(correctedWord);
+					if (founds.length===limit) {
+						if (doneFunc) doneFunc(founds);
+						return;
+					}
 				}
 			}
 		}
-		
+	
 		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
 
 		/*
@@ -809,9 +815,6 @@ Typo.prototype = {
 		}
 		*/
 		
-		// define the local context for async ops
-		var localId=self.id, ed1=[], ed2=[], founds=[];
-
 		function sortCorrections(corrections) {
 			var i, _len;
 			
@@ -915,16 +918,11 @@ Typo.prototype = {
 				return; 
 			}
 			
-			var startTime=Date.now();
+			var next, startTime=Date.now();
 
 			while(ed1.length!==0 || ed2.length!==0) {
-				var next;
-				if (ed2.length===0) {
-					next=ed1.pop();
-					ed2=edits(next);
-				} else {
-          next=ed2.pop();
-				}
+				if (ed2.length===0) ed2=edits(ed1.pop());
+				next=ed2.pop();
 
 				if (founds.indexOf(next)===-1 && self.check(next)) {
 					if (progressFunc && progressFunc(next)===false) { 
@@ -939,7 +937,7 @@ Typo.prototype = {
 				// do a sleep(0) every 200 ms
 				if (Date.now()-startTime>200) {
 					//console.log('sleep 0');
-					setTimeout(known, 0); // we continue after a sleep
+					setTimeout(known, 0); 
 					return;
 				} 
 			}
@@ -953,7 +951,8 @@ Typo.prototype = {
 		}
 
 		ed1=edits(word);
-		known(self.id); // start the search
+		ed2=edits(word);
+		known(); // start the search
 	}
 };
 })();

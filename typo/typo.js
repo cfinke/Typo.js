@@ -876,21 +876,33 @@ Typo.prototype = {
 		}	
 	
 		// Get the edit-distance-1 of word 
-		function edits(word) {
-			var rv=[], i, j, _len, _jlen;
+		function edits1(word) {
+			var rv=[], i, j, _len, _jlen, s;
 
+			// remove a letter
 			for (i = 0, _len = word.length + 1; i < _len; i++) {
-				var s = [ word.substring(0, i), word.substring(i) ];
+				s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1]) {
+					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+						rv.push(s[0] + self.alphabet[j] + s[1]);
+					}
+				}
+			}
+
+			// add a letter
+			for (i = 0, _len = word.length + 1; i < _len; i++) {
+				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1]) {
 					rv.push(s[0] + s[1].substring(1));
 				}
-				
-				// Eliminate transpositions of identical letters
-				if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-					rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
-				}
+			}				
 
+			// replace a letter
+			for (i = 0, _len = word.length + 1; i < _len; i++) {
+				s = [ word.substring(0, i), word.substring(i) ];
+			
 				if (s[1]) {
 					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
 						// Eliminate replacement of a letter by itself
@@ -899,11 +911,14 @@ Typo.prototype = {
 						}
 					}
 				}
+			}
 
-				if (s[1]) {
-					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-						rv.push(s[0] + self.alphabet[j] + s[1]);
-					}
+			// Eliminate transpositions of identical letters
+			for (i = 0, _len = word.length + 1; i < _len; i++) {
+				s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+					rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
 				}
 			}
 
@@ -921,7 +936,7 @@ Typo.prototype = {
 			var next, startTime=Date.now();
 
 			while(ed1.length!==0 || ed2.length!==0) {
-				if (ed2.length===0) ed2=edits(ed1.pop());
+				if (ed2.length===0) ed2=edits1(ed1.pop());
 				next=ed2.pop();
 
 				if (founds.indexOf(next)===-1 && self.check(next)) {
@@ -950,8 +965,8 @@ Typo.prototype = {
 			if (doneFunc) doneFunc(founds);
 		}
 
-		ed1=edits(word);
-		ed2=edits(word);
+		ed1=edits1(word);
+		ed2=ed1.slice();
 		known(); // start the search
 	}
 };

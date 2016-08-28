@@ -751,7 +751,7 @@ Typo.prototype = {
 		if (!self.id || self.id>100000) self.id=0;
 		localId=++self.id;
 		
-		// calling suggest with no arguments will stop the current search if there is now
+		// calling suggest with no arguments will stop the current search if there is one
 		if (arguments.length===0) return;
 		
 		limit = limit || 5;

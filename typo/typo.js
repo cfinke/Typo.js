@@ -740,9 +740,9 @@ Typo.prototype = {
 	suggest : function (word, limit, doneFunc, progressFunc) {
 		var self = this;
 
-		// define the local context for async ops
-		var localId, ed1=[], ed2=[], founds=[];
-		
+		var async=!!(doneFunc || progressFunc), localId;
+		var ed1=[], ed2=[], founds=[];
+
 		if (!self.loaded) {
 			throw "Dictionary not loaded.";
 		}
@@ -763,15 +763,23 @@ Typo.prototype = {
 			// to fill a smaller limit.
 			if (limit <= memoizedLimit || self.memoized[word]['suggestions'].length < memoizedLimit) {
 				var res=self.memoized[word]['suggestions'].slice(0, limit);
-				if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r]);
-				if (doneFunc) doneFunc(res);
-				return;
+				if (async) {
+					if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r]);
+					if (doneFunc) doneFunc(res);
+					return;
+				} else {
+					return res;
+				}
 			}
 		}
 		
 		if (self.check(word)) {
-			if (doneFunc) doneFunc([]);
-			return;
+			if (async) {
+				if (doneFunc) doneFunc([]);
+				return;
+			} else {
+				return [];  
+			}
 		}
 		
 		// Check the replacement table.
@@ -783,15 +791,19 @@ Typo.prototype = {
 				
 				if (self.check(correctedWord)) {
 					founds.push(correctedWord);
-					if (progressFunc) progressFunc(correctedWord);
-					if (founds.length===limit) {
-						if (doneFunc) doneFunc(founds);
-						return;
+					if (async) {
+						if (progressFunc) progressFunc(correctedWord);
+						if (founds.length===limit) {
+							if (doneFunc) doneFunc(founds);
+							return;
+						}
+					} else {
+						if (founds.length===limit) return founds;  
 					}
 				}
 			}
 		}
-	
+
 		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
 
 		/*
@@ -876,22 +888,24 @@ Typo.prototype = {
 		}	
 	
 		// Get the edit-distance-1 of word 
+		// we are adding matches in reverse as they will later be popped
 		function edits1(word) {
-			var rv=[], i, j, _len, _jlen, s;
+			var rv=[], i, j, _len=word.length+1, s;
 
 			// remove a letter
-			for (i = 0, _len = word.length + 1; i < _len; i++) {
+			for (i = _len ; i >=0; i--) {
 				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1]) {
-					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+				  
+					for (j = self.alphabet.length; j >=0; j--) {
 						rv.push(s[0] + self.alphabet[j] + s[1]);
 					}
 				}
 			}
 
 			// add a letter
-			for (i = 0, _len = word.length + 1; i < _len; i++) {
+			for (i = _len ; i >=0; i--) {
 				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1]) {
@@ -900,11 +914,11 @@ Typo.prototype = {
 			}				
 
 			// replace a letter
-			for (i = 0, _len = word.length + 1; i < _len; i++) {
+			for (i = _len ; i >=0; i--) {
 				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1]) {
-					for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+					for (j = self.alphabet.length; j>= 0; j--) {
 						// Eliminate replacement of a letter by itself
 						if (self.alphabet[j] != s[1].substring(0,1)){
 							rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
@@ -914,7 +928,7 @@ Typo.prototype = {
 			}
 
 			// Eliminate transpositions of identical letters
-			for (i = 0, _len = word.length + 1; i < _len; i++) {
+			for (i = _len ; i >=0; i--) {
 				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1].length > 1 && s[1][1] !== s[1][0]) {
@@ -949,12 +963,14 @@ Typo.prototype = {
 					if (founds.length===limit) ed1.length=ed2.length=0; // finish gracefully
 				}
 				
-				// do a sleep(0) every 200 ms
-				if (Date.now()-startTime>200) {
-					//console.log('sleep 0');
-					setTimeout(known, 0); 
-					return;
-				} 
+				if (async) {
+					// do a sleep(0) every 200 ms
+					if (Date.now()-startTime>200) {
+						//console.log('sleep 0');
+						setTimeout(known, 0); 
+						return;
+					} 
+				}
 			}
 
 			founds=sortCorrections(founds);
@@ -962,12 +978,18 @@ Typo.prototype = {
 				'suggestions': founds,
 				'limit': limit
 			}
-			if (doneFunc) doneFunc(founds);
+			
+			if (async) {
+				if (doneFunc) doneFunc(founds);
+			} else {
+				return founds;
+			}
 		}
 
 		ed1=edits1(word);
 		ed2=ed1.slice();
 		known(); // start the search
+		if (!async) return founds;
 	}
 };
 })();

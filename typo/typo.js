@@ -890,26 +890,27 @@ Typo.prototype = {
 		// Get the edit-distance-1 of word 
 		// we are adding matches in reverse as they will later be popped
 		function edits1(word) {
-			var rv=[], i, j, _len=word.length+1, s;
-
-			// remove a letter
-			for (i = _len ; i >=0; i--) {
-				s = [ word.substring(0, i), word.substring(i) ];
-			
-				if (s[1]) {
-				  
-					for (j = self.alphabet.length; j >=0; j--) {
-						rv.push(s[0] + self.alphabet[j] + s[1]);
-					}
-				}
-			}
+			var word=word.toLowerCase(), rv=[], i, j, _len=word.length+1, s;
 
 			// add a letter
 			for (i = _len ; i >=0; i--) {
 				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1]) {
+					for (j = self.alphabet.length-1; j >=0; j--) {
+						rv.push(s[0] + self.alphabet[j] + s[1]);
+						if (i===0)  rv.push(self.alphabet[j].toUpperCase() + s[1]);
+					}
+				}
+			}
+
+			// remove a letter
+			for (i = _len ; i >=0; i--) {
+				s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1]) {
 					rv.push(s[0] + s[1].substring(1));
+					if (i===0) rv.push(s[1][1].toUpperCase() + s[1].substring(2));
 				}
 			}				
 
@@ -918,10 +919,11 @@ Typo.prototype = {
 				s = [ word.substring(0, i), word.substring(i) ];
 			
 				if (s[1]) {
-					for (j = self.alphabet.length; j>= 0; j--) {
+					for (j = self.alphabet.length-1; j>= 0; j--) {
 						// Eliminate replacement of a letter by itself
 						if (self.alphabet[j] != s[1].substring(0,1)){
 							rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
+							if (i===0) rv.push(self.alphabet[j].toUpperCase() + s[1].substring(1));
 						}
 					}
 				}
@@ -933,6 +935,7 @@ Typo.prototype = {
 			
 				if (s[1].length > 1 && s[1][1] !== s[1][0]) {
 					rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+					if (i===0) rv.push(s[1][1].toUpperCase() + s[1][0] + s[1].substring(2));
 				}
 			}
 
@@ -962,6 +965,7 @@ Typo.prototype = {
 					founds.push(next);
 					if (founds.length===limit) ed1.length=ed2.length=0; // finish gracefully
 				}
+				next=next[0].toUpperCase + next.substring(1); // try capitalized next
 				
 				if (async) {
 					// do a sleep(0) every 200 ms

@@ -623,24 +623,7 @@ Typo.prototype = {
 			return true;
 		}
 		
-		// The exact word is not in the dictionary.
-		if (trimmedWord.toUpperCase() === trimmedWord) {
-			// The word was supplied in all uppercase.
-			// Check for a capitalized form of the word.
-			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
-			
-			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
-				// Capitalization variants are not allowed for this word.
-				return false;
-			}
-			
-			if (this.checkExact(capitalizedWord)) {
-				return true;
-			}
-		}
-		
 		var lowercaseWord = trimmedWord.toLowerCase();
-		
 		if (lowercaseWord !== trimmedWord) {
 			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
@@ -958,7 +941,7 @@ Typo.prototype = {
 				if (ed2.length===0) ed2=edits1(ed1.pop());
 				next=ed2.pop();
 
-				if (founds.indexOf(next)===-1 && self.check(next)) {
+				if (founds.indexOf(next)===-1 && self.checkExact(next)) {
 					if (progressFunc && progressFunc(next)===false) { 
 						// console.log('suggestions aborted');
 						ed1.length=ed2.length=0; // encourage GC

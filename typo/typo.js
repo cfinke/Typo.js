@@ -671,7 +671,9 @@ Typo.prototype = {
 		var ruleCodes = this.dictionaryTable[word];
 		
 		var i, _len;
-		
+
+		if (word === word.toUpperCase()) return true; // all uppercase word is ok
+
 		if (typeof ruleCodes === 'undefined') {
 			// Check if this might be a compound word.
 			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {

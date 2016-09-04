@@ -967,7 +967,6 @@ Typo.prototype = {
 					founds.push(next);
 					if (founds.length===limit) ed1.length=ed2.length=0; // finish gracefully
 				}
-				next=next[0].toUpperCase + next.substring(1); // try capitalized next
 				
 				if (async) {
 					// do a sleep(0) every 200 ms

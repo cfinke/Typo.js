@@ -794,39 +794,41 @@ Typo.prototype = {
 		*/
 		
 		function edits1(words) {
-			var rv = new WordList();
+			var rv = [];
 			
-			var i, j,  _len, _jlen;
+			var ii, i, j, _iilen, _len, _jlen;
 			
-            words.forEach(function (word) {
+			for (ii = 0, _iilen = words.length; ii < _iilen; ii++) {
+				var word = words[ii];
+				
 				for (i = 0, _len = word.length + 1; i < _len; i++) {
 					var s = [ word.substring(0, i), word.substring(i) ];
 				
 					if (s[1]) {
-						rv.add(s[0] + s[1].substring(1));
+						rv.push(s[0] + s[1].substring(1));
 					}
 					
 					// Eliminate transpositions of identical letters
 					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-						rv.add(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+						rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
 					}
 
 					if (s[1]) {
 						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
 							// Eliminate replacement of a letter by itself
 							if (self.alphabet[j] != s[1].substring(0,1)){
-								rv.add(s[0] + self.alphabet[j] + s[1].substring(1));
+								rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
 							}
 						}
 					}
 
 					if (s[1]) {
 						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							rv.add(s[0] + self.alphabet[j] + s[1]);
+							rv.push(s[0] + self.alphabet[j] + s[1]);
 						}
 					}
 				}
-			});
+			}
 			
 			return rv;
 		}
@@ -834,22 +836,21 @@ Typo.prototype = {
 		function known(words) {
 			var rv = [];
 			
-            words.forEach(function(word) {
-                if (self.checkExact(word)){
-                    rv.push(word)
-                }
-            })
+			for (var i = 0, _len = words.length; i < _len; i++) {
+				if (self.check(words[i])) {
+					rv.push(words[i]);
+				}
+			}
 			
 			return rv;
 		}
 		
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1(new WordList([word]));
+			var ed1 = edits1([word]);
 			var ed2 = edits1(ed1);
-            ed1.forEach(function(word) { ed2.add(word) });
 			
-			var corrections = known(ed2);
+			var corrections = known(ed1.concat(ed2));
 			
 			var i, _len;
 			
@@ -918,44 +919,6 @@ Typo.prototype = {
 		return this.memoized[word]['suggestions'];
 	}
 };
-
-// WordList object
-var WordList = function (initial) {
-  var self = this;
-
-  if (typeof (Set) === 'undefined') {
-    var index = {};
-    var words = [];
-
-    self.add = function (v) {
-      if (!(v in index)) {
-        index[v] = v
-        words.push(v)
-      }
-    }
-
-    self.forEach = function (fn) {
-      for (var i = 0; i < words.length; i++) {
-        fn(words[i], i, words)
-      }
-    }
-  } else {
-    var set = new Set()
-
-    self.add = function (v) { set.add(v) }
-
-    self.forEach = function (fn) { set.forEach(fn) }
-  }
-
-  if (initial) {
-    for (var i = 0; i < initial.length; i++) {
-      self.add(initial[i])
-    }
-  }
-
-  return self
-}
-
 })();
 
 // Support for use as a node.js module.

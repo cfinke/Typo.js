@@ -20,5 +20,8 @@
     "url": "https://github.com/cfinke/Typo.js/issues"
   },
   "homepage": "https://github.com/cfinke/Typo.js#readme",
-  "tonicExample": "var Typo = require('typo-js'); var dictionary = new Typo('en_US'); dictionary.check('mispelled');"
+  "tonicExample": "var Typo = require('typo-js'); var dictionary = new Typo('en_US'); dictionary.check('mispelled');",
+  "browser": {
+    "fs": false
+  }
 }

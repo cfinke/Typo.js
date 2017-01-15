@@ -8,7 +8,7 @@ function run() {
 	});
 	
 	test("Comments are removed from affix files", function () {
-		equal(empty_dict._removeAffixComments("# abc\ndef # ghi\n # jkl\nmnop qrst\n##"), "def\nmnop qrst", "Comment lines are removed.");
+		equal(empty_dict._removeAffixComments("# abc\ndef # ghi\n # jkl\nmnop qrst\n##"), "def # ghi\nmnop qrst", "Comment-only lines are removed.");
 		equal(empty_dict._removeAffixComments(""), "", "Handles empty input.");
 		equal(empty_dict._removeAffixComments("abc"), "abc", "Handles input that doesn't need changing.");
 		equal(empty_dict._removeAffixComments(" abc"), "abc", "Leading whitespace is removed.");

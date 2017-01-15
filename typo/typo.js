@@ -401,7 +401,11 @@ Typo.prototype = {
 	
 	_removeAffixComments : function (data) {
 		// Remove comments
-		data = data.replace(/#.*$/mg, "");
+		// This used to remove any string starting with '#' up to the end of the line,
+		// but some COMPOUNDRULE definitions include '#' as part of the rule.
+		// I haven't seen any affix files that use comments on the same line as real data,
+		// so I don't think this will break anything.
+		data = data.replace(/^\s*#.*$/mg, "");
 		
 		// Trim each line
 		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');

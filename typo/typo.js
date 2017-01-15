@@ -627,24 +627,7 @@ Typo.prototype = {
 			return true;
 		}
 		
-		// The exact word is not in the dictionary.
-		if (trimmedWord.toUpperCase() === trimmedWord) {
-			// The word was supplied in all uppercase.
-			// Check for a capitalized form of the word.
-			var capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
-			
-			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
-				// Capitalization variants are not allowed for this word.
-				return false;
-			}
-			
-			if (this.checkExact(capitalizedWord)) {
-				return true;
-			}
-		}
-		
 		var lowercaseWord = trimmedWord.toLowerCase();
-		
 		if (lowercaseWord !== trimmedWord) {
 			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
@@ -675,7 +658,9 @@ Typo.prototype = {
 		var ruleCodes = this.dictionaryTable[word];
 		
 		var i, _len;
-		
+
+		if (word === word.toUpperCase()) return true; // all uppercase word is ok
+
 		if (typeof ruleCodes === 'undefined') {
 			// Check if this might be a compound word.
 			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
@@ -741,41 +726,75 @@ Typo.prototype = {
 	
 	alphabet : "",
 	
-	suggest : function (word, limit) {
-		if (!this.loaded) {
+	suggest : function (word, limit, doneFunc, progressFunc) {
+		var self = this;
+
+		var async=!!(doneFunc || progressFunc), localId;
+		var ed1=[], ed2=[], founds=[];
+
+		if (!self.loaded) {
 			throw "Dictionary not loaded.";
 		}
-
+		
+		// id identify the current async op
+		if (!self.id || self.id>100000) self.id=0;
+		localId=++self.id;
+		
+		// calling suggest with no arguments will stop the current search if there is one
+		if (arguments.length===0) return;
+		
 		limit = limit || 5;
 
-		if (this.memoized.hasOwnProperty(word)) {
-			var memoizedLimit = this.memoized[word]['limit'];
+		if (self.memoized.hasOwnProperty(word)) {
+			var memoizedLimit = self.memoized[word]['limit'];
 
 			// Only return the cached list if it's big enough or if there weren't enough suggestions
 			// to fill a smaller limit.
-			if (limit <= memoizedLimit || this.memoized[word]['suggestions'].length < memoizedLimit) {
-				return this.memoized[word]['suggestions'].slice(0, limit);
-			}
-		}
-		
-		if (this.check(word)) return [];
-		
-		// Check the replacement table.
-		for (var i = 0, _len = this.replacementTable.length; i < _len; i++) {
-			var replacementEntry = this.replacementTable[i];
-			
-			if (word.indexOf(replacementEntry[0]) !== -1) {
-				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
-				
-				if (this.check(correctedWord)) {
-					return [ correctedWord ];
+			if (limit <= memoizedLimit || self.memoized[word]['suggestions'].length < memoizedLimit) {
+				var res=self.memoized[word]['suggestions'].slice(0, limit);
+				if (async) {
+					if (progressFunc) for (var r=0; r<res.length; r++) progressFunc(res[r]);
+					if (doneFunc) doneFunc(res);
+					return;
+				} else {
+					return res;
 				}
 			}
 		}
 		
-		var self = this;
-		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
+		if (self.check(word)) {
+			if (async) {
+				if (doneFunc) doneFunc([]);
+				return;
+			} else {
+				return [];  
+			}
+		}
 		
+		// Check the replacement table.
+		for (var i = 0, _len = self.replacementTable.length; i < _len; i++) {
+			var replacementEntry = self.replacementTable[i];
+			
+			if (word.indexOf(replacementEntry[0]) !== -1) {
+				var correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
+				
+				if (self.check(correctedWord)) {
+					founds.push(correctedWord);
+					if (async) {
+						if (progressFunc) progressFunc(correctedWord);
+						if (founds.length===limit) {
+							if (doneFunc) doneFunc(founds);
+							return;
+						}
+					} else {
+						if (founds.length===limit) return founds;  
+					}
+				}
+			}
+		}
+
+		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
+
 		/*
 		if (!self.alphabet) {
 			// Use the alphabet as implicitly defined by the words in the dictionary.
@@ -797,65 +816,7 @@ Typo.prototype = {
 		}
 		*/
 		
-		function edits1(words) {
-			var rv = [];
-			
-			var ii, i, j, _iilen, _len, _jlen;
-			
-			for (ii = 0, _iilen = words.length; ii < _iilen; ii++) {
-				var word = words[ii];
-				
-				for (i = 0, _len = word.length + 1; i < _len; i++) {
-					var s = [ word.substring(0, i), word.substring(i) ];
-				
-					if (s[1]) {
-						rv.push(s[0] + s[1].substring(1));
-					}
-					
-					// Eliminate transpositions of identical letters
-					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-						rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
-					}
-
-					if (s[1]) {
-						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							// Eliminate replacement of a letter by itself
-							if (self.alphabet[j] != s[1].substring(0,1)){
-								rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
-							}
-						}
-					}
-
-					if (s[1]) {
-						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							rv.push(s[0] + self.alphabet[j] + s[1]);
-						}
-					}
-				}
-			}
-			
-			return rv;
-		}
-		
-		function known(words) {
-			var rv = [];
-			
-			for (var i = 0, _len = words.length; i < _len; i++) {
-				if (self.check(words[i])) {
-					rv.push(words[i]);
-				}
-			}
-			
-			return rv;
-		}
-		
-		function correct(word) {
-			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
-			
-			var corrections = known(ed1.concat(ed2));
-			
+		function sortCorrections(corrections) {
 			var i, _len;
 			
 			// Sort the edits based on how many different ways they were created.
@@ -869,7 +830,7 @@ Typo.prototype = {
 					weighted_corrections[corrections[i]] += 1;
 				}
 			}
-			
+		
 			var sorted_corrections = [];
 			
 			for (i in weighted_corrections) {
@@ -911,16 +872,116 @@ Typo.prototype = {
 					rv.push(sorted_corrections[i][0]);
 				}
 			}
+
+			return rv;
+		}	
+	
+		// Get the edit-distance-1 of word 
+		// we are adding matches in reverse as they will later be popped
+		function edits1(word) {
+			var word=word.toLowerCase(), rv=[], i, j, _len=word.length+1, s;
+
+			// add a letter
+			for (i = _len ; i >=0; i--) {
+				s = [ word.substring(0, i), word.substring(i) ];
 			
+				if (s[1]) {
+					for (j = self.alphabet.length-1; j >=0; j--) {
+						rv.push(s[0] + self.alphabet[j] + s[1]);
+						if (i===0)  rv.push(self.alphabet[j].toUpperCase() + s[1]);
+					}
+				}
+			}
+
+			// remove a letter
+			for (i = _len ; i >=0; i--) {
+				s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1]) {
+					rv.push(s[0] + s[1].substring(1));
+					if (i===0) rv.push(s[1][1].toUpperCase() + s[1].substring(2));
+				}
+			}				
+
+			// replace a letter
+			for (i = _len ; i >=0; i--) {
+				s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1]) {
+					for (j = self.alphabet.length-1; j>= 0; j--) {
+						// Eliminate replacement of a letter by itself
+						if (self.alphabet[j] != s[1].substring(0,1)){
+							rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
+							if (i===0) rv.push(self.alphabet[j].toUpperCase() + s[1].substring(1));
+						}
+					}
+				}
+			}
+
+			// Eliminate transpositions of identical letters
+			for (i = _len ; i >=0; i--) {
+				s = [ word.substring(0, i), word.substring(i) ];
+			
+				if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+					rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+					if (i===0) rv.push(s[1][1].toUpperCase() + s[1][0] + s[1].substring(2));
+				}
+			}
+
 			return rv;
 		}
 		
-		this.memoized[word] = {
-			'suggestions': correct(word),
-			'limit': limit
-		};
+		function known() {
+			// verify we are still in the same operation
+			if (localId!==self.id) {
+				//console.log('different context - aborting');
+				ed1.length=ed2.length=0; // encourage GC
+				return; 
+			}
+			
+			var next, startTime=Date.now();
 
-		return this.memoized[word]['suggestions'];
+			while(ed1.length!==0 || ed2.length!==0) {
+				if (ed2.length===0) ed2=edits1(ed1.pop());
+				next=ed2.pop();
+
+				if (founds.indexOf(next)===-1 && self.checkExact(next)) {
+					if (progressFunc && progressFunc(next)===false) { 
+						// console.log('suggestions aborted');
+						ed1.length=ed2.length=0; // encourage GC
+						return; // abort requested
+					}
+					founds.push(next);
+					if (founds.length===limit) ed1.length=ed2.length=0; // finish gracefully
+				}
+				
+				if (async) {
+					// do a sleep(0) every 200 ms
+					if (Date.now()-startTime>200) {
+						//console.log('sleep 0');
+						setTimeout(known, 0); 
+						return;
+					} 
+				}
+			}
+
+			founds=sortCorrections(founds);
+			self.memoized[word] = {
+				'suggestions': founds,
+				'limit': limit
+			}
+			
+			if (async) {
+				if (doneFunc) doneFunc(founds);
+			} else {
+				return founds;
+			}
+		}
+
+		ed1=edits1(word);
+		ed2=ed1.slice();
+		known(); // start the search
+		if (!async) return founds;
 	}
 };
 })();

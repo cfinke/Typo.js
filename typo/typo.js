@@ -938,7 +938,9 @@ Typo.prototype = {
 				capitalization_scheme = "capitalized";
 			}
 			
-			for (i = 0, _len = Math.min(limit, sorted_corrections.length); i < _len; i++) {
+			var working_limit = limit;
+
+			for (i = 0; i < Math.min(working_limit, sorted_corrections.length); i++) {
 				if ("uppercase" === capitalization_scheme) {
 					sorted_corrections[i][0] = sorted_corrections[i][0].toUpperCase();
 				}
@@ -946,11 +948,15 @@ Typo.prototype = {
 					sorted_corrections[i][0] = sorted_corrections[i][0].substr(0, 1).toUpperCase() + sorted_corrections[i][0].substr(1);
 				}
 				
-				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST")) {
+				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST") && rv.indexOf(sorted_corrections[i][0]) == -1) {
 					rv.push(sorted_corrections[i][0]);
 				}
+				else {
+					// If one of the corrections is not eligible as a suggestion , make sure we still return the right number of suggestions.
+					working_limit++;
+				}
 			}
-			
+
 			return rv;
 		}
 		

@@ -161,9 +161,16 @@ function testDictionary(dict) {
 	
 	test("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
-		deepEqual(dict.suggest("CEIT"), [ "CERT", "CHIT", "CIT", "CENT", "CIT" ]);
+		deepEqual(dict.suggest("CEIT"), [ "CERT", "CHIT", "CIT", "CENT", "CUT" ]);
 	});
+
+	test("NOSUGGEST is respected", function () {
+		// 'fart' is marked NOSUGGEST, and I've confirmed that it would be in the suggestions if we don't respect that flag.
+		equal(dict.suggest("faxt").indexOf('fart'), -1);
 		
+		// If a NOSUGGEST word would be in the top 10 ('fart' is #5), Typo should still return the expected number of results.
+		equal(dict.suggest("faxt", 10).length, 10);
+	});
 }
 
 addEventListener( "load", run, false );

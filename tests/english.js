@@ -27,8 +27,8 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
 
 		// Requesting more suggestions than will be returned doesn't break anything.
-		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "smarting", "starting", "sprang", "sporting", "parting", "spatting", "sparking", "sparling", "sparring", "spurting" ]);
-		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "smarting", "starting", "sprang", "sporting", "parting", "spatting", "sparking", "sparling", "sparring", "spurting" ]);
+		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "starting", "sprang", "sporting", "spurting", "smarting", "sparking", "sparling", "sparring", "parting", "spatting" ]);
+		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "starting", "sprang", "sporting", "spurting", "smarting", "sparking", "sparling", "sparring", "parting", "spatting" ]);
 		deepEqual(dict.suggest("spartang", 1), [ "spartan" ]);
 
 		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
@@ -161,7 +161,7 @@ function testDictionary(dict) {
 	
 	test("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
-		deepEqual(dict.suggest("CEIT"), [ "CENT", "CHIT", "CERT", "CIT", "CIT" ]);
+		deepEqual(dict.suggest("CEIT"), [ "CERT", "CHIT", "CIT", "CENT", "CIT" ]);
 	});
 		
 }

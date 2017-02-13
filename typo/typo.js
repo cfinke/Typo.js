@@ -797,14 +797,25 @@ Typo.prototype = {
 		}
 		*/
 		
+		/**
+		 * Returns a hash keyed by all of the strings that can be made by making a single edit to the word (or words in) `words`
+		 * The value of each entry is the number of unique ways that the resulting word can be made.
+		 *
+		 * @arg mixed words Either a hash keyed by words or a string word to operate on.
+		 * @arg bool known_only Whether this function should ignore strings that are not in the dictionary.
+		 */
 		function edits1(words, known_only) {
-			var rv = [];
+			var rv = {};
 			
-			var ii, i, j, _iilen, _len, _jlen, _edit;
+			var i, j, _iilen, _len, _jlen, _edit;
 			
-			for (ii = 0, _iilen = words.length; ii < _iilen; ii++) {
-				var word = words[ii];
-				
+			if (typeof words == 'string') {
+				var word = words;
+				words = {};
+				words[word] = true;
+			}
+
+			for (var word in words) {
 				for (i = 0, _len = word.length + 1; i < _len; i++) {
 					var s = [ word.substring(0, i), word.substring(i) ];
 				
@@ -812,7 +823,12 @@ Typo.prototype = {
 						_edit = s[0] + s[1].substring(1);
 
 						if (!known_only || self.check(_edit)) {
-							rv.push(_edit);
+							if (!(_edit in rv)) {
+								rv[_edit] = 1;
+							}
+							else {
+								rv[_edit] += 1;
+							}
 						}
 					}
 					
@@ -821,7 +837,12 @@ Typo.prototype = {
 						_edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
 
 						if (!known_only || self.check(_edit)) {
-							rv.push(_edit);
+							if (!(_edit in rv)) {
+								rv[_edit] = 1;
+							}
+							else {
+								rv[_edit] += 1;
+							}
 						}
 					}
 
@@ -832,7 +853,12 @@ Typo.prototype = {
 								_edit = s[0] + self.alphabet[j] + s[1].substring(1);
 
 								if (!known_only || self.check(_edit)) {
-									rv.push(_edit);
+									if (!(_edit in rv)) {
+										rv[_edit] = 1;
+									}
+									else {
+										rv[_edit] += 1;
+									}
 								}
 							}
 						}
@@ -843,7 +869,12 @@ Typo.prototype = {
 							_edit = s[0] + self.alphabet[j] + s[1];
 
 							if (!known_only || self.check(_edit)) {
-								rv.push(_edit);
+								if (!(_edit in rv)) {
+									rv[_edit] = 1;
+								}
+								else {
+									rv[_edit] += 1;
+								}
 							}
 						}
 					}
@@ -852,41 +883,30 @@ Typo.prototype = {
 			
 			return rv;
 		}
-		
-		function known(words) {
-			var rv = [];
-			
-			for (var i = 0, _len = words.length; i < _len; i++) {
-				if (self.check(words[i])) {
-					rv.push(words[i]);
-				}
-			}
-			
-			return rv;
-		}
-		
+
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			var ed1 = edits1([word]);
+			var ed1 = edits1(word);
 			var ed2 = edits1(ed1, true);
 			
-			var corrections = known(ed1);
-			corrections = corrections.concat(ed2);
-			
-			var i, _len;
-			
 			// Sort the edits based on how many different ways they were created.
-			var weighted_corrections = {};
+			var weighted_corrections = ed2;
 			
-			for (i = 0, _len = corrections.length; i < _len; i++) {
-				if (!(corrections[i] in weighted_corrections)) {
-					weighted_corrections[corrections[i]] = 1;
+			for (var ed1word in ed1) {
+				if (!self.check(ed1word)) {
+					continue;
+				}
+
+				if (ed1word in weighted_corrections) {
+					weighted_corrections[ed1word] += ed1[ed1word];
 				}
 				else {
-					weighted_corrections[corrections[i]] += 1;
+					weighted_corrections[ed1word] = ed1[ed1word];
 				}
 			}
 			
+			var i, _len;
+
 			var sorted_corrections = [];
 			
 			for (i in weighted_corrections) {
@@ -900,11 +920,13 @@ Typo.prototype = {
 					return -1;
 				}
 				
+				// @todo If a and b are equally weighted, add our own weight based on something like the key locations on this language's default keyboard.
+
 				return 1;
 			}
 			
 			sorted_corrections.sort(sorter).reverse();
-			
+
 			var rv = [];
 
 			var capitalization_scheme = "lowercase";

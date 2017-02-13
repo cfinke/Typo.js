@@ -797,10 +797,10 @@ Typo.prototype = {
 		}
 		*/
 		
-		function edits1(words) {
+		function edits1(words, known_only) {
 			var rv = [];
 			
-			var ii, i, j, _iilen, _len, _jlen;
+			var ii, i, j, _iilen, _len, _jlen, _edit;
 			
 			for (ii = 0, _iilen = words.length; ii < _iilen; ii++) {
 				var word = words[ii];
@@ -809,26 +809,42 @@ Typo.prototype = {
 					var s = [ word.substring(0, i), word.substring(i) ];
 				
 					if (s[1]) {
-						rv.push(s[0] + s[1].substring(1));
+						_edit = s[0] + s[1].substring(1);
+
+						if (!known_only || self.check(_edit)) {
+							rv.push(_edit);
+						}
 					}
 					
 					// Eliminate transpositions of identical letters
 					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-						rv.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+						_edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
+
+						if (!known_only || self.check(_edit)) {
+							rv.push(_edit);
+						}
 					}
 
 					if (s[1]) {
 						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
 							// Eliminate replacement of a letter by itself
 							if (self.alphabet[j] != s[1].substring(0,1)){
-								rv.push(s[0] + self.alphabet[j] + s[1].substring(1));
+								_edit = s[0] + self.alphabet[j] + s[1].substring(1);
+
+								if (!known_only || self.check(_edit)) {
+									rv.push(_edit);
+								}
 							}
 						}
 					}
 
 					if (s[1]) {
 						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							rv.push(s[0] + self.alphabet[j] + s[1]);
+							_edit = s[0] + self.alphabet[j] + s[1];
+
+							if (!known_only || self.check(_edit)) {
+								rv.push(_edit);
+							}
 						}
 					}
 				}
@@ -852,9 +868,10 @@ Typo.prototype = {
 		function correct(word) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
 			var ed1 = edits1([word]);
-			var ed2 = edits1(ed1);
+			var ed2 = edits1(ed1, true);
 			
-			var corrections = known(ed1.concat(ed2));
+			var corrections = known(ed1);
+			corrections = corrections.concat(ed2);
 			
 			var i, _len;
 			

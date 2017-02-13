@@ -452,6 +452,11 @@ Typo.prototype = {
 		for (var i = 1, _len = lines.length; i < _len; i++) {
 			var line = lines[i];
 			
+			if (!line) {
+				// Ignore empty lines.
+				continue;
+			}
+
 			var parts = line.split("/", 2);
 			
 			var word = parts[0];

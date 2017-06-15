@@ -46,6 +46,41 @@ function run() {
 		var dict = new Typo("en_US", affData, wordData);
 		checkLoadedDict(dict);
 	});
+
+	test("Progress callbacks are being called", function() {
+        var dicCb = false;
+        var affCb = false;
+		var affData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
+		var wordData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+		var dict = new Typo("en_US", affData, wordData, {
+            progressCallback: function (obType, i, total) {
+                if (obType === 'dic') {
+                    dicCb = true;
+                } else if (obType === 'aff') {
+                    affCb = true;
+                }
+            }
+        });
+		checkLoadedDict(dict);
+        ok(dicCb);
+        ok(affCb);
+	});
+
+	test("Dictionary instatiated with already parsed data", function() {
+        var dicCb = false;
+        var affCb = false;
+		var affData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
+		var wordData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+		var dict = new Typo("en_US", affData, wordData);
+		var rules = dict.rules;
+        var dictionaryTable = dict.dictionaryTable;
+
+        dict = new Typo("en_US", null, null, {
+            rules: rules,
+            dictionaryTable: dictionaryTable
+        });
+        checkLoadedDict(dict);
+	});
 	
 	test("Synchronous load of dictionary data", function() {
 		var dict = new Typo("en_US");

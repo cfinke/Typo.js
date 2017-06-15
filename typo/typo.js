@@ -40,6 +40,8 @@ var Typo;
  *                              {Function} [loadedCallback]: Called when both affData and wordsData
  *                              have been loaded. Only used if asyncLoad is set to true. The parameter
  *                              is the instantiated Typo object.
+ *                              {Function} [progressCallback]: Called when processing .aff and .dic files
+ *                              signature: progressCallback(opType, i, total), where opType = 'dic' or 'aff'
  *
  * @returns {Typo} A Typo object.
  */
@@ -57,7 +59,7 @@ Typo = function (dictionary, affData, wordsData, settings) {
 	
 	this.replacementTable = [];
 	
-	this.flags = settings.flags || {}; 
+	this.flags = settings.flags || {};
 	
 	this.memoized = {};
 
@@ -75,7 +77,7 @@ Typo = function (dictionary, affData, wordsData, settings) {
 		
 		// If the data is preloaded, just setup the Typo object.
 		if (affData && wordsData) {
-			setup();
+			setup(settings.progressCallback);
 		}
 		// Loading data for Chrome extentions.
 		else if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
@@ -86,8 +88,8 @@ Typo = function (dictionary, affData, wordsData, settings) {
 				path = "typo/dictionaries";
 			}
 			
-			if (!affData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
-			if (!wordsData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
+			if (!affData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData, settings.progressCallback);
+			if (!wordsData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData, settings.progressCallback);
 		}
 		else {
 			if (settings.dictionaryPath) {
@@ -100,42 +102,42 @@ Typo = function (dictionary, affData, wordsData, settings) {
 				path = './dictionaries';
 			}
 			
-			if (!affData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
-			if (!wordsData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
+			if (!affData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData, settings.progressCallback);
+			if (!wordsData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData, settings.progressCallback);
 		}
 	}
 	
-	function readDataFile(url, setFunc) {
+	function readDataFile(url, setFunc, progressCallback) {
 		var response = self._readFile(url, null, settings.asyncLoad);
 		
 		if (settings.asyncLoad) {
 			response.then(function(data) {
-				setFunc(data);
+				setFunc(data, progressCallback);
 			});
 		}
 		else {
-			setFunc(response);
+			setFunc(response, progressCallback);
 		}
 	}
 
-	function setAffData(data) {
+	function setAffData(data, progressCallback) {
 		affData = data;
 
 		if (wordsData) {
-			setup();
+			setup(progressCallback);
 		}
 	}
 
-	function setWordsData(data) {
+	function setWordsData(data, progressCallback) {
 		wordsData = data;
 
 		if (affData) {
-			setup();
+			setup(progressCallback);
 		}
 	}
 
-	function setup() {
-		self.rules = self._parseAFF(affData);
+	function setup(progressCallback) {
+		self.rules = self._parseAFF(affData, progressCallback);
 		
 		// Save the rule codes that are used in compound rules.
 		self.compoundRuleCodes = {};
@@ -154,7 +156,7 @@ Typo = function (dictionary, affData, wordsData, settings) {
 			self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
 		}
 		
-		self.dictionaryTable = self._parseDIC(wordsData);
+		self.dictionaryTable = self._parseDIC(wordsData, progressCallback);
 		
 		// Get rid of any codes from the compound rule codes that are never used 
 		// (or that were special regex characters).  Not especially necessary... 
@@ -289,7 +291,7 @@ Typo.prototype = {
 	 * @returns object The rules from the file.
 	 */
 	
-	_parseAFF : function (data) {
+	_parseAFF : function (data, progressCallback) {
 		var rules = {};
 		
 		var line, subline, numEntries, lineParts;
@@ -301,6 +303,9 @@ Typo.prototype = {
 		var lines = data.split("\n");
 		
 		for (i = 0, _len = lines.length; i < _len; i++) {
+            if (progressCallback) {
+                progressCallback('aff', i, _len);
+            }
 			line = lines[i];
 			
 			var definitionParts = line.split(/\s+/);
@@ -427,7 +432,7 @@ Typo.prototype = {
 	 *                 word forms from the dictionary.
 	 */
 	
-	_parseDIC : function (data) {
+	_parseDIC : function (data, progressCallback) {
 		data = this._removeDicComments(data);
 		
 		var lines = data.split("\n");
@@ -450,13 +455,16 @@ Typo.prototype = {
 		
 		// The first line is the number of words in the dictionary.
 		for (var i = 1, _len = lines.length; i < _len; i++) {
+            if (progressCallback) {
+                progressCallback('dic', i, _len);
+            }
 			var line = lines[i];
 			
 			if (!line) {
 				// Ignore empty lines.
 				continue;
 			}
-
+			
 			var parts = line.split("/", 2);
 			
 			var word = parts[0];

@@ -15,6 +15,15 @@ To use Typo in a standard web application you need to pass a settings object tha
 var dictionary = new Typo("en_US", false, false, { dictionaryPath: "typo/dictionaries" }),
 ```
 
+To load custom dic and aff files, and you can also provide a callback progress:
+
+```javascript
+var dictionary = new Typo("en_US", affData, wordsData, { progressCallback: function (objectType, i, total) {
+    var pct = parseInt((10000 * i) / _len, 10) / 100;
+    console.log('Processing ' + objectType + ': ' + pct + '%...');
+}}),
+```
+
 If using in node.js, load it like so:
 
 ```javascript

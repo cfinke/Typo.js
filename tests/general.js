@@ -65,22 +65,6 @@ function run() {
         ok(dicCb);
         ok(affCb);
 	});
-
-	test("Dictionary instatiated with already parsed data", function() {
-        var dicCb = false;
-        var affCb = false;
-		var affData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
-		var wordData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
-		var dict = new Typo("en_US", affData, wordData);
-		var rules = dict.rules;
-        var dictionaryTable = dict.dictionaryTable;
-
-        dict = new Typo("en_US", null, null, {
-            rules: rules,
-            dictionaryTable: dictionaryTable
-        });
-        checkLoadedDict(dict);
-	});
 	
 	test("Synchronous load of dictionary data", function() {
 		var dict = new Typo("en_US");

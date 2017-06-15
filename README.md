@@ -18,10 +18,12 @@ var dictionary = new Typo("en_US", false, false, { dictionaryPath: "typo/diction
 To load custom dic and aff files, and you can also provide a callback progress:
 
 ```javascript
-var dictionary = new Typo("en_US", affData, wordsData, { progressCallback: function (objectType, i, total) {
-    var pct = parseInt((10000 * i) / _len, 10) / 100;
-    console.log('Processing ' + objectType + ': ' + pct + '%...');
-}}),
+var dictionary = new Typo("en_US", affData, wordsData, {
+    progressCallback: function (objectType, i, total) {
+        var pct = parseInt((10000 * i) / total, 10) / 100;
+        console.log('Processing ' + objectType + ': ' + pct + '%...');
+    }
+}),
 ```
 
 If using in node.js, load it like so:

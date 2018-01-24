@@ -7,7 +7,8 @@
     // "strictNullChecks": true,
     "module": "es6",
     "target": "es5",
-    "allowJs": true
+    "allowJs": true,
+    "types": ["node"]
   },
   "include": ["./src/"]
 }

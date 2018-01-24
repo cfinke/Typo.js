@@ -1,13 +1,14 @@
 {
   "name": "typo-js",
   "version": "1.0.4",
+  "main": "dist/typo.js",
   "description": "A Typescript port of Typo.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/marcelorisoli/Typo.js.git"
   },
   "keywords": ["spellcheck", "spellchecker", "hunspell", "typo", "speling"],
-  "author": "Marcelo Risoli <cfinke@gmail.com>",
+  "author": "Marcelo Risoli <marcelo.risoli@prezi.com>",
   "license": "BSD-3-Clause",
   "homepage": "https://github.com/marcelorisoli/Typo.js#readme",
   "scripts": {

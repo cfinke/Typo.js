@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "es5", "es2015.core", "es2015.promise"],
+    "outDir": "./dist/",
+    "sourceMap": true,
+    // "noImplicitAny": true,
+    // "strictNullChecks": true,
+    "module": "es6",
+    "target": "es5",
+    "allowJs": true
+  },
+  "include": ["./src/"]
+}

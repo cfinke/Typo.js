@@ -1,7 +1,6 @@
 Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.
 
-Usage
-=====
+# Usage
 
 To use Typo, simply load it like so:
 
@@ -19,7 +18,7 @@ var is_spelled_correctly = dictionary.check("mispelled");
 ```
 
 To get suggested corrections for a misspelled word, do this:
-	
+
 ```javascript
 var array_of_suggestions = dictionary.suggest("mispeling");
 
@@ -39,7 +38,6 @@ Typo.js has full support for the following Hunspell affix flags:
 * NOSUGGEST
 * NEEDAFFIX
 
-Licensing
-=========
+# Licensing
 
 Typo.js is free software, licensed under the Modified BSD License.

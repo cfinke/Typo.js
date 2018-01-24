@@ -1,0 +1,28 @@
+{
+  "name": "typo-js",
+  "version": "1.0.4",
+  "description": "A Typescript port of Typo.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/marcelorisoli/Typo.js.git"
+  },
+  "keywords": ["spellcheck", "spellchecker", "hunspell", "typo", "speling"],
+  "author": "Marcelo Risoli <cfinke@gmail.com>",
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/marcelorisoli/Typo.js#readme",
+  "scripts": {
+    "build": "./node_modules/.bin/tsc",
+    "postinstall": "npm run build",
+    "precommit": "lint-staged",
+    "prettier-watch": "onchange '**/*.js' -- prettier --write {{changed}}"
+  },
+  "lint-staged": {
+    "*.{js,json,css,md}": ["prettier --write", "git add"]
+  },
+  "devDependencies": {
+    "@types/node": "^9.3.0",
+    "husky": "^0.14.3",
+    "lint-staged": "^6.0.1",
+    "prettier": "1.10.2"
+  }
+}

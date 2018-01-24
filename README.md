@@ -1,7 +1,6 @@
-Typo.js is a JavaScript spellchecker that uses Hunspell-style dictionaries.
+Typo.js is a Typescript port of [Typo.js spellchecker](https://github.com/cfinke/Typo.js)
 
-Usage
-=====
+# Usage
 
 To use Typo in a Chrome extension, simply include the typo.js file in your extension's background page, and then initialize the dictionary like so:
 
@@ -29,7 +28,7 @@ var is_spelled_correctly = dictionary.check("mispelled");
 ```
 
 To get suggested corrections for a misspelled word, do this:
-	
+
 ```javascript
 var array_of_suggestions = dictionary.suggest("mispeling");
 
@@ -49,13 +48,10 @@ Typo.js has full support for the following Hunspell affix flags:
 * NOSUGGEST
 * NEEDAFFIX
 
-_Note: The manifest.json file in the root directory of the project is there to simplify testing, as it allows you to load all of the files in the Typo project as a Chrome extension. It doesn't have any purpose if you're using Typo.js in your own project._
+# Demo
 
-Demo
-====
 There's a live demo of Typo.js at http://www.chrisfinke.com/files/typo-demo/ and a complete Node.js example file at examples/node/index.js.
 
-Licensing
-=========
+# Licensing
 
 Typo.js is free software, licensed under the Modified BSD License.

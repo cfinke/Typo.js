@@ -2,6 +2,8 @@
   "defaultSeverity": "error",
   "extends": ["tslint:recommended"],
   "jsRules": {},
-  "rules": {},
+  "rules": {
+    "no-shadowed-variable": false
+  },
   "rulesDirectory": []
 }

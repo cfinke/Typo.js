@@ -1,3 +1,6 @@
+export function createTypo(affData, wordsData) {
+  return new Typo(affData, wordsData);
+}
 var Typo = /** @class */ (function() {
   /**
    * Typo constructor.
@@ -612,5 +615,4 @@ var Typo = /** @class */ (function() {
   Typo.DEFAULT_PATH = "dictionaries";
   return Typo;
 })();
-export { Typo };
 //# sourceMappingURL=typo.js.map

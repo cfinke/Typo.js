@@ -9,7 +9,16 @@ interface IEntry {
     remove?: any;
 }
 
-export class Typo {
+export interface ITypo {
+    check(word: string): boolean;
+    suggest(word: string, limit?: number): string[];
+}
+
+export function createTypo(affData: string, wordsData: string): ITypo {
+    return new Typo(affData, wordsData);
+}
+
+class Typo implements ITypo {
     private static DEFAULT_PATH = "dictionaries";
 
     private rules: { [rule: string]: any } = {};

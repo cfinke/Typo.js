@@ -1,6 +1,6 @@
 {
   "name": "typo-js",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "main": "dist/typo.js",
   "description": "A Typescript port of Typo.js",
   "repository": {
@@ -13,7 +13,6 @@
   "homepage": "https://github.com/marcelorisoli/Typo.js#readme",
   "scripts": {
     "build": "./node_modules/.bin/tsc -d",
-    "postinstall": "npm run build",
     "precommit": "lint-staged",
     "prettier-watch": "onchange '**/*.js' -- prettier --write {{changed}}"
   },

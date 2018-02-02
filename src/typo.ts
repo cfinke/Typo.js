@@ -789,3 +789,9 @@ class Typo implements ITypo {
         return false;
     }
 }
+
+declare function define(deps: string[], factory: () => any): void;
+
+define([], () => {
+    return { createTypo };
+});

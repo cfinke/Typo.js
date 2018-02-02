@@ -2,6 +2,8 @@
   "compilerOptions": {
     "lib": ["dom", "es5", "es2015.core", "es2015.promise"],
     "outDir": "./dist/",
+    "declaration": true,
+    "declarationDir": "./dist/dts",
     "sourceMap": true,
     // "noImplicitAny": true,
     // "strictNullChecks": true,

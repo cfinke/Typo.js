@@ -24,7 +24,7 @@ class Typo implements ITypo {
     private rules: { [rule: string]: any } = {};
     private dictionaryTable: { [word: string]: string[] } = {};
 
-    private compoundRules: any[] = [];
+    private compoundRules: RegExp[] = [];
     private compoundRuleCodes: { [rule: string]: string[] } = {};
     private replacementTable: any[] = [];
     private flags: { [flag: string]: any } = {};
@@ -340,7 +340,7 @@ class Typo implements ITypo {
         this.compoundRuleCodes = {};
 
         this.compoundRules.forEach((rule) => {
-            rule.forEach((item) => this.compoundRuleCodes[item] = []);
+            rule.toString().split("").forEach((item) => this.compoundRuleCodes[item] = []);
         });
 
         // If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
@@ -366,7 +366,7 @@ class Typo implements ITypo {
 
             let expressionText = "";
 
-            ruleText.forEach((character) => {
+            ruleText.toString().split("").forEach((character) => {
                 expressionText += character in this.compoundRuleCodes
                     ? "(" + this.compoundRuleCodes[character].join("|") + ")"
                     : character;

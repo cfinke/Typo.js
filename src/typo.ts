@@ -1,14 +1,3 @@
-/* globals chrome: false */
-/* globals __dirname: false */
-/* globals require: false */
-/* globals Buffer: false */
-/* globals module: false */
-
-/**
- * Typo is a JavaScript implementation of a spellchecker using hunspell-style
- * dictionaries.
- */
-
 export interface ITypo {
         check(word: string): boolean;
             suggest(word: string, limit?: number): string[];
@@ -854,11 +843,6 @@ let Typo;
         },
     };
 })();
-
-// Support for use as a node.js module.
-if (typeof module !== "undefined") {
-    module.exports = Typo;
-}
 
 declare function define(deps: string[], factory: () => any): void;
 

@@ -24,6 +24,7 @@ class Typo implements ITypo {
     private rules: { [rule: string]: any } = {};
     private dictionaryTable: { [word: string]: string[] } = {};
 
+    private alphabet: string = "";
     private compoundRules: RegExp[] = [];
     private compoundRuleCodes: { [rule: string]: string[] } = {};
     private replacementTable: any[] = [];
@@ -108,8 +109,7 @@ class Typo implements ITypo {
      * @returns {String[]} The array of suggestions.
      */
 
-    public suggest(word: string, limit: number): string[] {
-        limit = limit || 5;
+    public suggest(word: string, limit: number = 5): string[] {
 
         if (this.memoized.hasOwnProperty(word)) {
             const memoizedLimit = this.memoized[word].limit;
@@ -142,87 +142,69 @@ class Typo implements ITypo {
             }
         }
 
-        /**
-         * Returns a hash keyed by all of the strings that can be made by
-         * making a single edit to the word (or words in) `words`
-         * The value of each entry is the number of unique ways that the resulting word can be made.
-         *
-         * @arg mixed words Either a hash keyed by words or a string word to operate on.
-         * @arg bool knownOnly Whether this function should ignore strings that are not in the dictionary.
-         */
-        function edits1(words, knownOnly?) {
-            const rv = {};
+        this.alphabet = "abcdefghijklmnopqrstuvwxyz";
 
-            let i;
-            let j;
-            let len;
-            let jlen;
-            let edit;
+        this.memoized[word] = {
+            limit,
+            suggestions: this.correct(word, limit),
+        };
 
-            if (typeof words === "string") {
-                const word = words;
-                words = {};
-                words[word] = true;
-            }
+        return this.memoized[word].suggestions;
+    }
 
-            for (const word of words) {
-                for (i = 0, len = word.length + 1; i < len; i++) {
-                    const s = [word.substring(0, i), word.substring(i)];
+    /**
+     * Returns a hash keyed by all of the strings that can be made by
+     * making a single edit to the word (or words in) `words`
+     * The value of each entry is the number of unique ways that the resulting word can be made.
+     *
+     * @arg mixed words Either a hash keyed by words or a string word to operate on.
+     * @arg bool knownOnly Whether this function should ignore strings that are not in the dictionary.
+     */
+    private edits1(words, knownOnly?) {
+        const rv = {};
 
-                    if (s[1]) {
-                        edit = s[0] + s[1].substring(1);
+        let edit;
 
-                        if (!knownOnly || this.check(edit)) {
-                            if (!(edit in rv)) {
-                                rv[edit] = 1;
-                            } else {
-                                rv[edit] += 1;
-                            }
+        if (typeof words === "string") {
+            const word = words;
+            words = {};
+            words[word] = true;
+        }
+
+        for (const word of words) {
+            for (let i = 0; i <= word.length; i++) {
+                const s = [word.substring(0, i), word.substring(i)];
+
+                if (s[1]) {
+                    edit = s[0] + s[1].substring(1);
+
+                    if (!knownOnly || this.check(edit)) {
+                        if (!(edit in rv)) {
+                            rv[edit] = 1;
+                        } else {
+                            rv[edit] += 1;
                         }
                     }
+                }
 
-                    // Eliminate transpositions of identical letters
-                    if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-                        edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
+                // Eliminate transpositions of identical letters
+                if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+                    edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
 
-                        if (!knownOnly || this.check(edit)) {
-                            if (!(edit in rv)) {
-                                rv[edit] = 1;
-                            } else {
-                                rv[edit] += 1;
-                            }
+                    if (!knownOnly || this.check(edit)) {
+                        if (!(edit in rv)) {
+                            rv[edit] = 1;
+                        } else {
+                            rv[edit] += 1;
                         }
                     }
+                }
 
-                    if (s[1]) {
-                        for (
-                            j = 0, jlen = this.alphabet.length;
-                        j < jlen;
-                        j++
-                        ) {
-                            // Eliminate replacement of a letter by itthis
-                            if (this.alphabet[j] !== s[1].substring(0, 1)) {
-                                edit =
-                                    s[0] + this.alphabet[j] + s[1].substring(1);
-
-                                if (!knownOnly || this.check(edit)) {
-                                    if (!(edit in rv)) {
-                                        rv[edit] = 1;
-                                    } else {
-                                        rv[edit] += 1;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (s[1]) {
-                        for (
-                            j = 0, jlen = this.alphabet.length;
-                        j < jlen;
-                        j++
-                        ) {
-                            edit = s[0] + this.alphabet[j] + s[1];
+                if (s[1]) {
+                    for (const letter of this.alphabet) {
+                        // Eliminate replacement of a letter by itthis
+                        if (letter !== s[1].substring(0, 1)) {
+                            edit = s[0] + letter + s[1].substring(1);
 
                             if (!knownOnly || this.check(edit)) {
                                 if (!(edit in rv)) {
@@ -234,105 +216,113 @@ class Typo implements ITypo {
                         }
                     }
                 }
-            }
 
-            return rv;
+                if (s[1]) {
+                    for (const letter of this.alphabet) {
+                        edit = s[0] + letter + s[0];
+
+                        if (!knownOnly || this.check(edit)) {
+                            if (!(edit in rv)) {
+                                rv[edit] = 1;
+                            } else {
+                                rv[edit] += 1;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        function correct(word) {
-            // Get the edit-distance-1 and edit-distance-2 forms of this word.
-            const ed1 = edits1(word);
-            const ed2 = edits1(ed1, true);
-
-            // Sort the edits based on how many different ways they were created.
-            const weightedCorrections = ed2;
-
-            for (const ed1word in ed1) {
-                if (!this.check(ed1word)) {
-                    continue;
-                }
-
-                if (ed1word in weightedCorrections) {
-                    weightedCorrections[ed1word] += ed1[ed1word];
-                } else {
-                    weightedCorrections[ed1word] = ed1[ed1word];
-                }
-            }
-
-            const sortedCorrections = [];
-
-            for (const i in weightedCorrections) {
-                if (weightedCorrections.hasOwnProperty(i)) {
-                    sortedCorrections.push([i, weightedCorrections[i]]);
-                }
-            }
-
-            function sorter(a: number[], b: number[]) {
-                if (a[1] < b[1]) {
-                    return -1;
-                }
-
-                // @todo If a and b are equally weighted, add our own weight based on something
-                // like the key locations on this language's default keyboard.
-
-                return 1;
-            }
-
-            sortedCorrections.sort(sorter).reverse();
-
-            const rv = [];
-
-            let capitalizationScheme = "lowercase";
-
-            if (word.toUpperCase() === word) {
-                capitalizationScheme = "uppercase";
-            } else if (
-                word.substr(0, 1).toUpperCase() +
-                word.substr(1).toLowerCase() ===
-            word
-            ) {
-                capitalizationScheme = "capitalized";
-            }
-
-            let workingLimit: number = limit;
-
-            for (
-                let i = 0;
-            i < Math.min(workingLimit, sortedCorrections.length);
-            i++
-            ) {
-                if ("uppercase" === capitalizationScheme) {
-                    sortedCorrections[i][0] = sortedCorrections[
-                        i
-                    ][0].toUpperCase();
-                } else if ("capitalized" === capitalizationScheme) {
-                    sortedCorrections[i][0] =
-                        sortedCorrections[i][0].substr(0, 1).toUpperCase() +
-                        sortedCorrections[i][0].substr(1);
-                }
-
-                if (
-                    !this.hasFlag(sortedCorrections[i][0], "NOSUGGEST") &&
-                    rv.indexOf(sortedCorrections[i][0]) === -1
-                ) {
-                    rv.push(sortedCorrections[i][0]);
-                } else {
-                    // If one of the corrections is not eligible as a suggestion
-                    // make sure we still return the right number of suggestions.
-                    workingLimit++;
-                }
-            }
-
-            return rv;
-        }
-
-        this.memoized[word] = {
-            limit,
-            suggestions: correct(word),
-        };
-
-        return this.memoized[word].suggestions;
+        return rv;
     }
+
+    private correct(word: string, limit: number) {
+        // Get the edit-distance-1 and edit-distance-2 forms of this word.
+        const ed1 = this.edits1(word);
+        const ed2 = this.edits1(ed1, true);
+
+        // Sort the edits based on how many different ways they were created.
+        const weightedCorrections = ed2;
+
+        for (const ed1word in ed1) {
+            if (!this.check(ed1word)) {
+                continue;
+            }
+
+            if (ed1word in weightedCorrections) {
+                weightedCorrections[ed1word] += ed1[ed1word];
+            } else {
+                weightedCorrections[ed1word] = ed1[ed1word];
+            }
+        }
+
+        const sortedCorrections = [];
+
+        for (const i in weightedCorrections) {
+            if (weightedCorrections.hasOwnProperty(i)) {
+                sortedCorrections.push([i, weightedCorrections[i]]);
+            }
+        }
+
+        function sorter(a: number[], b: number[]) {
+            if (a[1] < b[1]) {
+                return -1;
+            }
+
+            // @todo If a and b are equally weighted, add our own weight based on something
+            // like the key locations on this language's default keyboard.
+
+            return 1;
+        }
+
+        sortedCorrections.sort(sorter).reverse();
+
+        const rv = [];
+
+        let capitalizationScheme = "lowercase";
+
+        if (word.toUpperCase() === word) {
+            capitalizationScheme = "uppercase";
+        } else if (
+            word.substr(0, 1).toUpperCase() +
+            word.substr(1).toLowerCase() ===
+        word
+        ) {
+            capitalizationScheme = "capitalized";
+        }
+
+        let workingLimit: number = limit;
+
+        for (
+            let i = 0;
+        i < Math.min(workingLimit, sortedCorrections.length);
+        i++
+        ) {
+            if ("uppercase" === capitalizationScheme) {
+                sortedCorrections[i][0] = sortedCorrections[
+                    i
+                ][0].toUpperCase();
+            } else if ("capitalized" === capitalizationScheme) {
+                sortedCorrections[i][0] =
+                    sortedCorrections[i][0].substr(0, 1).toUpperCase() +
+                    sortedCorrections[i][0].substr(1);
+            }
+
+            if (
+                !this.hasFlag(sortedCorrections[i][0], "NOSUGGEST") &&
+                rv.indexOf(sortedCorrections[i][0]) === -1
+            ) {
+                rv.push(sortedCorrections[i][0]);
+            } else {
+                // If one of the corrections is not eligible as a suggestion
+                // make sure we still return the right number of suggestions.
+                workingLimit++;
+            }
+        }
+
+        return rv;
+    }
+
     private setup(): void {
         this.rules = this.parseAFF(this.affData);
 

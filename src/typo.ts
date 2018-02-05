@@ -14,6 +14,11 @@ export interface ITypo {
     suggest(word: string, limit?: number): string[];
 }
 
+export interface IMemoized {
+    limit: number;
+    suggestions: string[];
+}
+
 export function createTypo(affData: string, wordsData: string): ITypo {
     return new Typo(affData, wordsData);
 }
@@ -29,7 +34,7 @@ class Typo implements ITypo {
     private compoundRuleCodes: { [rule: string]: string[] } = {};
     private replacementTable: any[] = [];
     private flags: { [flag: string]: any } = {};
-    private memoized: { [rule: string]: any } = {};
+    private memoized: { [rule: string]: IMemoized } = {};
 
     /**
      * Typo constructor.
@@ -38,11 +43,43 @@ class Typo implements ITypo {
      * @param {String} [wordsData]  The data from the dictionary's .dic file.
      *
      */
-    constructor(
-        private affData: string,
-        private wordsData: string,
-    ) {
-        this.setup();
+    constructor(affData: string, wordsData: string) {
+        this.rules = this.parseAFF(affData);
+
+        this.compoundRules.forEach((rule) => {
+            rule.toString().split("").forEach((item) => this.compoundRuleCodes[item] = []);
+        });
+
+        // If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
+        // will do the work of saving the list of words that are compound-only.
+        if ("ONLYINCOMPOUND" in this.flags) {
+            this.compoundRuleCodes.ONLYINCOMPOUND = [];
+        }
+
+        this.dictionaryTable = this.parseDIC(wordsData);
+
+        // Get rid of any codes from the compound rule codes that are never used
+        // (or that were special regex characters).  Not especially necessary...
+        for (const ruleCode in this.compoundRuleCodes) {
+            if (this.compoundRuleCodes[ruleCode].length === 0) {
+                delete this.compoundRuleCodes[ruleCode];
+            }
+        }
+
+        // Build the full regular expressions for each compound rule.
+        // I have a feeling (but no confirmation yet) that this method of
+        // testing for compound words is probably slow.
+        this.compoundRules.map((ruleText) => {
+
+            let expressionText = "";
+
+            for (const character of ruleText.toString()) {
+                expressionText += character in this.compoundRuleCodes
+                    ? "(" + this.compoundRuleCodes[character].join("|") + ")"
+                    : character;
+            }
+            return new RegExp(expressionText, "i");
+        });
     }
 
     /**
@@ -61,39 +98,39 @@ class Typo implements ITypo {
         const trimmedWord = aWord.replace(/^\s\s*/, "").replace(/\s\s*$/, "");
 
         if (this.checkExact(trimmedWord)) {
-        return true;
-    }
-
-    // The exact word is not in the dictionary.
-        if (trimmedWord.toUpperCase() === trimmedWord) {
-        // The word was supplied in all uppercase.
-        // Check for a capitalized form of the word.
-        const capitalizedWord =
-            trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
-
-        if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
-            // Capitalization variants are not allowed for this word.
-            return false;
-        }
-
-        if (this.checkExact(capitalizedWord)) {
             return true;
         }
-    }
+
+        // The exact word is not in the dictionary.
+        if (trimmedWord.toUpperCase() === trimmedWord) {
+            // The word was supplied in all uppercase.
+            // Check for a capitalized form of the word.
+            const capitalizedWord =
+                trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
+
+            if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
+                // Capitalization variants are not allowed for this word.
+                return false;
+            }
+
+            if (this.checkExact(capitalizedWord)) {
+                return true;
+            }
+        }
 
         const lowercaseWord = trimmedWord.toLowerCase();
 
         if (lowercaseWord !== trimmedWord) {
-        if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
-            // Capitalization variants are not allowed for this word.
-            return false;
-        }
+            if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
+                // Capitalization variants are not allowed for this word.
+                return false;
+            }
 
-        // Check for a lowercase form
-        if (this.checkExact(lowercaseWord)) {
-            return true;
+            // Check for a lowercase form
+            if (this.checkExact(lowercaseWord)) {
+                return true;
+            }
         }
-    }
 
         return false;
     }
@@ -161,7 +198,7 @@ class Typo implements ITypo {
      * @arg bool knownOnly Whether this function should ignore strings that are not in the dictionary.
      */
     private edits1(words, knownOnly?) {
-        const rv = {};
+        let rv: { [rule: string]: number } = {};
 
         let edit;
 
@@ -178,26 +215,14 @@ class Typo implements ITypo {
                 if (s[1]) {
                     edit = s[0] + s[1].substring(1);
 
-                    if (!knownOnly || this.check(edit)) {
-                        if (!(edit in rv)) {
-                            rv[edit] = 1;
-                        } else {
-                            rv[edit] += 1;
-                        }
-                    }
+                    rv = this.setOrIncreaseRuleValue(rv, word, knownOnly);
                 }
 
                 // Eliminate transpositions of identical letters
                 if (s[1].length > 1 && s[1][1] !== s[1][0]) {
                     edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
 
-                    if (!knownOnly || this.check(edit)) {
-                        if (!(edit in rv)) {
-                            rv[edit] = 1;
-                        } else {
-                            rv[edit] += 1;
-                        }
-                    }
+                    rv = this.setOrIncreaseRuleValue(rv, word, knownOnly);
                 }
 
                 if (s[1]) {
@@ -206,13 +231,7 @@ class Typo implements ITypo {
                         if (letter !== s[1].substring(0, 1)) {
                             edit = s[0] + letter + s[1].substring(1);
 
-                            if (!knownOnly || this.check(edit)) {
-                                if (!(edit in rv)) {
-                                    rv[edit] = 1;
-                                } else {
-                                    rv[edit] += 1;
-                                }
-                            }
+                            rv = this.setOrIncreaseRuleValue(rv, word, knownOnly);
                         }
                     }
                 }
@@ -221,18 +240,24 @@ class Typo implements ITypo {
                     for (const letter of this.alphabet) {
                         edit = s[0] + letter + s[0];
 
-                        if (!knownOnly || this.check(edit)) {
-                            if (!(edit in rv)) {
-                                rv[edit] = 1;
-                            } else {
-                                rv[edit] += 1;
-                            }
-                        }
+                        rv = this.setOrIncreaseRuleValue(rv, word, knownOnly);
                     }
                 }
             }
         }
 
+        return rv;
+    }
+
+    private setOrIncreaseRuleValue(
+        rv: { [rule: string]: number },
+        word: string,
+        knownOnly?: boolean,
+    ): { [rule: string]: number } {
+        const value = (word in rv) ? rv[word] + 1 : 1;
+        if (!knownOnly || this.check(word)) {
+            return {...rv, word: value};
+        }
         return rv;
     }
 
@@ -323,49 +348,6 @@ class Typo implements ITypo {
         return rv;
     }
 
-    private setup(): void {
-        this.rules = this.parseAFF(this.affData);
-
-        // Save the rule codes that are used in compound rules.
-        this.compoundRuleCodes = {};
-
-        this.compoundRules.forEach((rule) => {
-            rule.toString().split("").forEach((item) => this.compoundRuleCodes[item] = []);
-        });
-
-        // If we add this ONLYINCOMPOUND flag to this.compoundRuleCodes, then _parseDIC
-        // will do the work of saving the list of words that are compound-only.
-        if ("ONLYINCOMPOUND" in this.flags) {
-            this.compoundRuleCodes.ONLYINCOMPOUND = [];
-        }
-
-        this.dictionaryTable = this.parseDIC(this.wordsData);
-
-        // Get rid of any codes from the compound rule codes that are never used
-        // (or that were special regex characters).  Not especially necessary...
-        for (const i in this.compoundRuleCodes) {
-            if (this.compoundRuleCodes[i].length === 0) {
-                delete this.compoundRuleCodes[i];
-            }
-        }
-
-        // Build the full regular expressions for each compound rule.
-        // I have a feeling (but no confirmation yet) that this method of
-        // testing for compound words is probably slow.
-        this.compoundRules.map((ruleText) => {
-
-            let expressionText = "";
-
-            ruleText.toString().split("").forEach((character) => {
-                expressionText += character in this.compoundRuleCodes
-                    ? "(" + this.compoundRuleCodes[character].join("|") + ")"
-                    : character;
-            });
-            return new RegExp(expressionText, "i");
-        });
-
-    }
-
     /**
      * Parse the rules out from a .aff file.
      *
@@ -376,22 +358,13 @@ class Typo implements ITypo {
     private parseAFF(data: string) {
         const rules = {};
 
-        let line;
-        let subline;
-        let numEntries;
-        let lineParts;
-        let i;
-        let j;
-        let len;
-        let jlen;
-
         // Remove comment lines
         data = this.removeAffixComments(data);
 
         const lines = data.split("\n");
 
-        for (i = 0, len = lines.length; i < len; i++) {
-            line = lines[i];
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
 
             const definitionParts = line.split(/\s+/);
 
@@ -400,14 +373,14 @@ class Typo implements ITypo {
             if (ruleType === "PFX" || ruleType === "SFX") {
                 const ruleCode = definitionParts[1];
                 const combineable = definitionParts[2];
-                numEntries = parseInt(definitionParts[3], 10);
+                const numEntries = parseInt(definitionParts[3], 10);
 
                 const entries = [];
 
-                for (j = i + 1, jlen = i + 1 + numEntries; j < jlen; j++) {
-                    subline = lines[j];
+                for (let j = i + 1; j < i + 1 + numEntries; j++) {
+                    const subline = lines[j];
 
-                    lineParts = subline.split(/\s+/);
+                    const lineParts = subline.split(/\s+/);
                     const charactersToRemove = lineParts[2];
 
                     const additionParts = lineParts[3].split("/");
@@ -455,18 +428,18 @@ class Typo implements ITypo {
 
                 i += numEntries;
             } else if (ruleType === "COMPOUNDRULE") {
-                numEntries = parseInt(definitionParts[1], 10);
+                const numEntries = parseInt(definitionParts[1], 10);
 
-                for (j = i + 1, jlen = i + 1 + numEntries; j < jlen; j++) {
+                for (let j = i + 1; j < i + 1 + numEntries; j++) {
                     line = lines[j];
 
-                    lineParts = line.split(/\s+/);
-                    this.compoundRules.push(lineParts[1]);
+                    const lineParts = line.split(/\s+/);
+                    this.compoundRules.push(new RegExp(lineParts[1]));
                 }
 
                 i += numEntries;
             } else if (ruleType === "REP") {
-                lineParts = line.split(/\s+/);
+                const lineParts = line.split(/\s+/);
 
                 if (lineParts.length === 3) {
                     this.replacementTable.push([lineParts[1], lineParts[2]]);
@@ -500,11 +473,11 @@ class Typo implements ITypo {
         // so I don't think this will break anything.
         return data.replace(/^\s*#.*$/gm, "")
         // Trim each line
-        .replace(/^\s\s*/m, "").replace(/\s\s*$/m, "")
-    // Remove blank lines.
-    .replace(/\n{2,}/g, "\n")
-    // Trim the entire string
-    .replace(/^\s\s*/, "").replace(/\s\s*$/, "");
+            .replace(/^\s\s*/m, "").replace(/\s\s*$/m, "")
+        // Remove blank lines.
+            .replace(/\n{2,}/g, "\n")
+        // Trim the entire string
+            .replace(/^\s\s*/, "").replace(/\s\s*$/, "");
     }
 
     /**
@@ -520,21 +493,6 @@ class Typo implements ITypo {
 
         const lines = data.split("\n");
         const dictionaryTable = {};
-
-        function addWord(word, rules) {
-            // Some dictionaries will list the same word multiple times with different rule sets.
-            if (!dictionaryTable.hasOwnProperty(word)) {
-                dictionaryTable[word] = null;
-            }
-
-            if (rules.length > 0) {
-                if (dictionaryTable[word] === null) {
-                    dictionaryTable[word] = [];
-                }
-
-                dictionaryTable[word].push(rules);
-            }
-        }
 
         // The first line is the number of words in the dictionary.
         for (let i = 1, len = lines.length; i < len; i++) {
@@ -558,7 +516,7 @@ class Typo implements ITypo {
                     !("NEEDAFFIX" in this.flags) ||
                     ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1
                 ) {
-                    addWord(word, ruleCodesArray);
+                    this.addWord(word, ruleCodesArray);
                 }
 
                 for (let j = 0, jlen = ruleCodesArray.length; j < jlen; j++) {
@@ -567,7 +525,7 @@ class Typo implements ITypo {
                     const rule = this.rules[code];
 
                     if (rule) {
-                        const newWords = this._applyRule(word, rule);
+                        const newWords = this.applyRule(word, rule);
 
                         for (
                             let ii = 0, iilen = newWords.length;
@@ -576,7 +534,7 @@ class Typo implements ITypo {
                         ) {
                             const newWord = newWords[ii];
 
-                            addWord(newWord, []);
+                            this.addWord(newWord, []);
 
                             if (rule.combineable) {
                                 for (let k = j + 1; k < jlen; k++) {
@@ -589,7 +547,7 @@ class Typo implements ITypo {
                                             combineRule.combineable &&
                                             rule.type !== combineRule.type
                                         ) {
-                                            const otherNewWords = this._applyRule(
+                                            const otherNewWords = this.applyRule(
                                                 newWord,
                                                 combineRule,
                                             );
@@ -603,7 +561,7 @@ class Typo implements ITypo {
                                             ) {
                                                 const otherNewWord =
                                                     otherNewWords[iii];
-                                                addWord(otherNewWord, []);
+                                                this.addWord(otherNewWord, []);
                                             }
                                         }
                                     }
@@ -617,11 +575,26 @@ class Typo implements ITypo {
                     }
                 }
             } else {
-                addWord(word.trim(), []);
+                this.addWord(word.trim(), []);
             }
         }
 
         return dictionaryTable;
+    }
+
+    private addWord(word: string, rules: string[]) {
+        // Some dictionaries will list the same word multiple times with different rule sets.
+        if (!this.dictionaryTable.hasOwnProperty(word)) {
+            this.dictionaryTable[word] = null;
+        }
+
+        if (rules.length > 0) {
+            if (this.dictionaryTable[word] === null) {
+                this.dictionaryTable[word] = [];
+            }
+
+            this.dictionaryTable[word].push(...rules);
+        }
     }
 
     /**
@@ -665,12 +638,10 @@ class Typo implements ITypo {
      * @returns {String[]} The new words generated by the rule.
      */
 
-    private _applyRule(word, rule) {
-        const entries = rule.entries;
+    private applyRule(word, rule) {
         let newWords = [];
 
-        for (let i = 0, len = entries.length; i < len; i++) {
-            const entry = entries[i];
+        for (const entry of rule.entries) {
 
             if (!entry.match || word.match(entry.match)) {
                 let newWord = word;
@@ -688,18 +659,10 @@ class Typo implements ITypo {
                 newWords.push(newWord);
 
                 if ("continuationClasses" in entry) {
-                    for (
-                        let j = 0, jlen = entry.continuationClasses.length;
-                    j < jlen;
-                    j++
-                    ) {
-                        const continuationRule = this.rules[
-                            entry.continuationClasses[j]
-                        ];
-
+                    for (const continuationRule of this.rules[entry.continuationClasses]) {
                         if (continuationRule) {
                             newWords = newWords.concat(
-                                this._applyRule(newWord, continuationRule),
+                                this.applyRule(newWord, continuationRule),
                             );
                         }
                         /*
@@ -727,17 +690,14 @@ class Typo implements ITypo {
     private checkExact(word) {
         const ruleCodes = this.dictionaryTable[word];
 
-        let i;
-        let len;
-
         if (typeof ruleCodes === "undefined") {
             // Check if this might be a compound word.
             if (
                 "COMPOUNDMIN" in this.flags &&
                 word.length >= this.flags.COMPOUNDMIN
             ) {
-                for (i = 0, len = this.compoundRules.length; i < len; i++) {
-                    if (word.match(this.compoundRules[i])) {
+                for (const compoundRule of this.compoundRules) {
+                    if (word.match(compoundRule)) {
                         return true;
                     }
                 }
@@ -748,8 +708,8 @@ class Typo implements ITypo {
             return true;
         } else if (typeof ruleCodes === "object") {
             // this.dictionary['hasOwnProperty'] will be a function.
-            for (i = 0, len = ruleCodes.length; i < len; i++) {
-                if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
+            for (const ruleCode of ruleCodes) {
+                if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCode)) {
                     return true;
                 }
             }
@@ -768,7 +728,7 @@ class Typo implements ITypo {
 
     private hasFlag(word, flag, wordFlags?) {
         if (flag in this.flags) {
-            if (typeof wordFlags === "undefined") {
+            if (wordFlags == null) {
                 wordFlags = this.dictionaryTable[word];
             }
 

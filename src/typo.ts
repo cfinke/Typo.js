@@ -1,10 +1,10 @@
 export interface ITypo {
-        check(word: string): boolean;
-            suggest(word: string, limit?: number): string[];
+    check(word: string): boolean;
+    suggest(word: string, limit?: number): string[];
 }
 
 export function createTypo(affData: string, wordsData: string): ITypo {
-    return new Typo(affData, wordsData);
+    return new Typo(affData, wordsData, {});
 }
 
 let Typo;
@@ -42,10 +42,7 @@ let Typo;
      * @returns {Typo} A Typo object.
      */
 
-    Typo = function(dictionary, affData, wordsData, settings) {
-        settings = settings || {};
-
-        this.dictionary = null;
+    Typo = function(affData, wordsData, settings: any = {}) {
 
         this.rules = {};
         this.dictionaryTable = {};
@@ -59,8 +56,6 @@ let Typo;
 
         this.memoized = {};
 
-        this.loaded = false;
-
         const self = this;
 
         // Loop-control variables.
@@ -69,11 +64,7 @@ let Typo;
         let len;
         let jlen;
 
-        if (dictionary) {
-            self.dictionary = dictionary;
-
-            setup();
-        }
+        setup();
 
         function setup() {
             self.rules = self._parseAFF(affData);
@@ -126,11 +117,6 @@ let Typo;
                 self.compoundRules[i] = new RegExp(expressionText, "i");
             }
 
-            self.loaded = true;
-
-            if (settings.asyncLoad && settings.loadedCallback) {
-                settings.loadedCallback(self);
-            }
         }
 
         return this;
@@ -487,10 +473,6 @@ let Typo;
          */
 
         check(aWord) {
-            if (!this.loaded) {
-                throw new Error("Dictionary not loaded.");
-            }
-
             // Remove leading and trailing whitespace
             const trimmedWord = aWord.replace(/^\s\s*/, "").replace(/\s\s*$/, "");
 
@@ -539,10 +521,6 @@ let Typo;
          */
 
         checkExact(word) {
-            if (!this.loaded) {
-                throw new Error("Dictionary not loaded.");
-            }
-
             const ruleCodes = this.dictionaryTable[word];
 
             let i;
@@ -581,10 +559,6 @@ let Typo;
          */
 
         hasFlag(word, flag, wordFlags) {
-            if (!this.loaded) {
-                throw new Error("Dictionary not loaded.");
-            }
-
             if (flag in this.flags) {
                 if (typeof wordFlags === "undefined") {
                     wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
@@ -612,10 +586,6 @@ let Typo;
         alphabet : "",
 
         suggest(word, limit) {
-            if (!this.loaded) {
-                throw new Error("Dictionary not loaded.");
-            }
-
             limit = limit || 5;
 
             if (this.memoized.hasOwnProperty(word)) {

@@ -859,3 +859,9 @@ let Typo;
 if (typeof module !== "undefined") {
     module.exports = Typo;
 }
+
+declare function define(deps: string[], factory: () => any): void;
+
+define([], () => {
+        return { createTypo };
+});

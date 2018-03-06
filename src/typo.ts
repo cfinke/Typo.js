@@ -3,15 +3,15 @@ export interface ITypo {
   suggest(word: string, limit?: number): string[];
 }
 
-export function createTypo(
-  dictionaryTable: {[key: string]: string[]},
-  compoundRules: any[],
-  replacementTable: string[][],
-  flags: {[key: string]: string},
-): ITypo {
-  return new Typo(
-    dictionaryTable, compoundRules, replacementTable, flags,
-  );
+export function createTypo(dictData: IDictData): ITypo {
+  return new Typo(dictData);
+}
+
+export interface IDictData {
+  compoundRules: RegExp[];
+  dictionaryTable: {[key: string]: string[]};
+  flags: {[key: string]: string};
+  replacementTable: string[][];
 }
 
 export interface IMemo {
@@ -26,19 +26,19 @@ export interface IReplacementEntry {
 
 class Typo implements ITypo {
   private alphabet: string = "";
+  private compoundRules: RegExp[];
+  private dictionaryTable: {[key: string]: string[]};
+  private flags: {[key: string]: string};
   private memoized: {[word: string]: IMemo} = {};
   private replacementTable: IReplacementEntry[];
 
-  constructor(
-    private dictionaryTable: {[key: string]: string[]},
-    private compoundRules: RegExp[],
-    replacementTable: string[][],
-    private flags: {[key: string]: string},
-  ) {
-    this.replacementTable = replacementTable.map((entry: string[]) => {
+  constructor(dictData: IDictData) {
+    this.compoundRules = dictData.compoundRules;
+    this.dictionaryTable = dictData.dictionaryTable;
+    this.flags = dictData.flags;
+    this.replacementTable = dictData.replacementTable.map((entry: string[]) => {
       return {oldAffix: entry[0], newAffix: entry[1]};
     });
-    debugger;
   }
 
   public  check(aWord) {

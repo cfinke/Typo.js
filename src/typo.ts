@@ -41,7 +41,7 @@ class Typo implements ITypo {
     });
   }
 
-  public  check(aWord) {
+  public check(aWord: string): boolean {
     // Remove leading and trailing whitespace
     const trimmedWord = aWord.replace(/^\s\s*/, "").replace(/\s\s*$/, "");
 
@@ -82,7 +82,7 @@ class Typo implements ITypo {
     return false;
   }
 
-  public suggest(word, limit = 5) {
+  public suggest(word: string, limit = 5): string[] {
 
     if (this.memoized.hasOwnProperty(word)) {
       const memoizedLimit = this.memoized[word].limit;
@@ -94,7 +94,9 @@ class Typo implements ITypo {
       }
     }
 
-    if (this.check(word)) { return []; }
+    if (this.check(word)) {
+      return [];
+    }
 
     // Check the replacement table.
     for (const replacementEntry of this.replacementTable) {
@@ -102,7 +104,7 @@ class Typo implements ITypo {
         const correctedWord = word.replace(replacementEntry.oldAffix, replacementEntry.newAffix);
 
         if (this.check(correctedWord)) {
-          return [ correctedWord ];
+          return [correctedWord];
         }
       }
     }
@@ -117,11 +119,11 @@ class Typo implements ITypo {
     return this.memoized[word].suggestions;
   }
 
-  private checkExact(word) {
+  private checkExact(word: string): boolean {
     const ruleCodes = this.dictionaryTable[word];
     if (typeof ruleCodes === "undefined") {
       // Check if this might be a compound word.
-      if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
+      if ("COMPOUNDMIN" in this.flags && word.length >= parseInt(this.flags.COMPOUNDMIN, 10)) {
         for (const rule of this.compoundRules) {
           if (word.match(rule)) {
             return true;
@@ -143,7 +145,7 @@ class Typo implements ITypo {
     return false;
   }
 
-  private hasFlag(word, flag, wordFlags?) {
+  private hasFlag(word: string, flag: string, wordFlags?: string | string[]) {
     if (flag in this.flags) {
       if (typeof wordFlags === "undefined") {
         wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
@@ -160,12 +162,6 @@ class Typo implements ITypo {
   private edits1(words, knownOnly?) {
     const rv = {};
 
-    let i;
-    let j;
-    let len;
-    let jlen;
-    let edit;
-
     if (typeof words === "string") {
       const word = words;
       words = {};
@@ -174,7 +170,8 @@ class Typo implements ITypo {
 
     for (const word in words) {
       if (words.hasOwnProperty(word)) {
-        for (i = 0, len = word.length + 1; i < len; i++) {
+        for (let i = 0; i < word.length + 1; i++) {
+          let edit;
           const s = [ word.substring(0, i), word.substring(i) ];
 
           if (s[1]) {
@@ -203,10 +200,10 @@ class Typo implements ITypo {
           }
 
           if (s[1]) {
-            for (j = 0, jlen = this.alphabet.length; j < jlen; j++) {
+            for (const letter of this.alphabet) {
               // Eliminate replacement of a letter by itself
-              if (this.alphabet[j] !== s[1].substring(0, 1)) {
-                edit = s[0] + this.alphabet[j] + s[1].substring(1);
+              if (letter !== s[1].substring(0, 1)) {
+                edit = s[0] + letter + s[0].substring(1);
 
                 if (!knownOnly || this.check(edit)) {
                   if (!(edit in rv)) {
@@ -220,9 +217,8 @@ class Typo implements ITypo {
           }
 
           if (s[1]) {
-            for (j = 0, jlen = this.alphabet.length; j < jlen; j++) {
-              edit = s[0] + this.alphabet[j] + s[1];
-
+            for (const letter of this.alphabet) {
+              edit = s[0] + letter + s[1];
               if (!knownOnly || this.check(edit)) {
                 if (!(edit in rv)) {
                   rv[edit] = 1;
@@ -239,7 +235,7 @@ class Typo implements ITypo {
     return rv;
   }
 
-  private  correct(word: string, limit: number) {
+  private correct(word: string, limit: number): string[] {
     // Get the edit-distance-1 and edit-distance-2 forms of this word.
     const ed1 = this.edits1(word);
     const ed2 = this.edits1(ed1, true);
@@ -259,11 +255,9 @@ class Typo implements ITypo {
       }
     }
 
-    let i;
-
     const sortedCorrections = [];
 
-    for (i in weightedCorrections) {
+    for (const i in weightedCorrections) {
       if (weightedCorrections.hasOwnProperty(i)) {
         sortedCorrections.push([ i, weightedCorrections[i] ]);
       }
@@ -271,19 +265,17 @@ class Typo implements ITypo {
 
     sortedCorrections.sort(this.sorter).reverse();
 
-    const rv = [];
+    const rv: string[] = [];
 
-    let capitalizationScheme = "lowercase";
-
-    if (word.toUpperCase() === word) {
-      capitalizationScheme = "uppercase";
-    } else if (word.substr(0, 1).toUpperCase() + word.substr(1).toLowerCase() === word) {
-      capitalizationScheme = "capitalized";
-    }
+    const capitalizationScheme = word.toUpperCase() === word
+      ?  "uppercase"
+      : word.substr(0, 1).toUpperCase() + word.substr(1).toLowerCase() === word
+        ? "capitalized"
+        : "lowercase";
 
     let workingLimit = limit;
 
-    for (i = 0; i < Math.min(workingLimit, sortedCorrections.length); i++) {
+    for (let i = 0; i < Math.min(workingLimit, sortedCorrections.length); i++) {
       if ("uppercase" === capitalizationScheme) {
         sortedCorrections[i][0] = sortedCorrections[i][0].toUpperCase();
       } else if ("capitalized" === capitalizationScheme) {
@@ -309,10 +301,6 @@ class Typo implements ITypo {
     if (a[1] < b[1]) {
       return -1;
     }
-
-    // @todo If a and b are equally weighted, add our own weight
-    // based on something like the key locations on this language's default keyboard.
-
     return 1;
   }
 }

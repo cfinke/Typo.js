@@ -109,168 +109,9 @@ class Typo implements ITypo {
 
     this.alphabet = "abcdefghijklmnopqrstuvwxyz";
 
-    function edits1(words, knownOnly?) {
-      const rv = {};
-
-      let i;
-      let j;
-      let len;
-      let jlen;
-      let edit;
-
-      if (typeof words === "string") {
-        const word = words;
-        words = {};
-        words[word] = true;
-      }
-
-      for (const word in words) {
-        if (words.hasOwnProperty(word)) {
-          for (i = 0, len = word.length + 1; i < len; i++) {
-            const s = [ word.substring(0, i), word.substring(i) ];
-
-            if (s[1]) {
-              edit = s[0] + s[1].substring(1);
-
-              if (!knownOnly || this.check(edit)) {
-                if (!(edit in rv)) {
-                  rv[edit] = 1;
-                } else {
-                  rv[edit] += 1;
-                }
-              }
-            }
-
-            // Eliminate transpositions of identical letters
-            if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-              edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
-
-              if (!knownOnly || this.check(edit)) {
-                if (!(edit in rv)) {
-                  rv[edit] = 1;
-                } else {
-                  rv[edit] += 1;
-                }
-              }
-            }
-
-            if (s[1]) {
-              for (j = 0, jlen = this.alphabet.length; j < jlen; j++) {
-                // Eliminate replacement of a letter by itself
-                if (this.alphabet[j] !== s[1].substring(0, 1)) {
-                  edit = s[0] + this.alphabet[j] + s[1].substring(1);
-
-                  if (!knownOnly || this.check(edit)) {
-                    if (!(edit in rv)) {
-                      rv[edit] = 1;
-                    } else {
-                      rv[edit] += 1;
-                    }
-                  }
-                }
-              }
-            }
-
-            if (s[1]) {
-              for (j = 0, jlen = this.alphabet.length; j < jlen; j++) {
-                edit = s[0] + this.alphabet[j] + s[1];
-
-                if (!knownOnly || this.check(edit)) {
-                  if (!(edit in rv)) {
-                    rv[edit] = 1;
-                  } else {
-                    rv[edit] += 1;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      return rv;
-    }
-
-    function correct(word) {
-      // Get the edit-distance-1 and edit-distance-2 forms of this word.
-      const ed1 = edits1(word);
-      const ed2 = edits1(ed1, true);
-
-      // Sort the edits based on how many different ways they were created.
-      const weightedCorrections = ed2;
-
-      for (const ed1word in ed1) {
-        if (!this.check(ed1word)) {
-          continue;
-        }
-
-        if (ed1word in weightedCorrections) {
-          weightedCorrections[ed1word] += ed1[ed1word];
-        } else {
-          weightedCorrections[ed1word] = ed1[ed1word];
-        }
-      }
-
-      let i;
-
-      const sortedCorrections = [];
-
-      for (i in weightedCorrections) {
-        if (weightedCorrections.hasOwnProperty(i)) {
-          sortedCorrections.push([ i, weightedCorrections[i] ]);
-        }
-      }
-
-      function sorter(a, b) {
-        if (a[1] < b[1]) {
-          return -1;
-        }
-
-        // @todo If a and b are equally weighted, add our own weight
-        // based on something like the key locations on this language's default keyboard.
-
-        return 1;
-      }
-
-      sortedCorrections.sort(sorter).reverse();
-
-      const rv = [];
-
-      let capitalizationScheme = "lowercase";
-
-      if (word.toUpperCase() === word) {
-        capitalizationScheme = "uppercase";
-      } else if (word.substr(0, 1).toUpperCase() + word.substr(1).toLowerCase() === word) {
-        capitalizationScheme = "capitalized";
-      }
-
-      let workingLimit = limit;
-
-      for (i = 0; i < Math.min(workingLimit, sortedCorrections.length); i++) {
-        if ("uppercase" === capitalizationScheme) {
-          sortedCorrections[i][0] = sortedCorrections[i][0].toUpperCase();
-        } else if ("capitalized" === capitalizationScheme) {
-          sortedCorrections[i][0] = sortedCorrections[i][0].substr(0, 1).toUpperCase()
-          + sortedCorrections[i][0].substr(1);
-        }
-
-        if (
-          !this.hasFlag(sortedCorrections[i][0], "NOSUGGEST")
-        && rv.indexOf(sortedCorrections[i][0]) === -1) {
-          rv.push(sortedCorrections[i][0]);
-        } else {
-          // If one of the corrections is not eligible as a suggestion,
-          // make sure we still return the right number of suggestions.
-          workingLimit++;
-        }
-      }
-
-      return rv;
-    }
-
     this.memoized[word] = {
       limit,
-      suggestions: correct(word),
+      suggestions: this.correct(word, limit),
     };
 
     return this.memoized[word].suggestions;
@@ -314,5 +155,164 @@ class Typo implements ITypo {
     }
 
     return false;
+  }
+
+  private edits1(words, knownOnly?) {
+    const rv = {};
+
+    let i;
+    let j;
+    let len;
+    let jlen;
+    let edit;
+
+    if (typeof words === "string") {
+      const word = words;
+      words = {};
+      words[word] = true;
+    }
+
+    for (const word in words) {
+      if (words.hasOwnProperty(word)) {
+        for (i = 0, len = word.length + 1; i < len; i++) {
+          const s = [ word.substring(0, i), word.substring(i) ];
+
+          if (s[1]) {
+            edit = s[0] + s[1].substring(1);
+
+            if (!knownOnly || this.check(edit)) {
+              if (!(edit in rv)) {
+                rv[edit] = 1;
+              } else {
+                rv[edit] += 1;
+              }
+            }
+          }
+
+          // Eliminate transpositions of identical letters
+          if (s[1].length > 1 && s[1][1] !== s[1][0]) {
+            edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
+
+            if (!knownOnly || this.check(edit)) {
+              if (!(edit in rv)) {
+                rv[edit] = 1;
+              } else {
+                rv[edit] += 1;
+              }
+            }
+          }
+
+          if (s[1]) {
+            for (j = 0, jlen = this.alphabet.length; j < jlen; j++) {
+              // Eliminate replacement of a letter by itself
+              if (this.alphabet[j] !== s[1].substring(0, 1)) {
+                edit = s[0] + this.alphabet[j] + s[1].substring(1);
+
+                if (!knownOnly || this.check(edit)) {
+                  if (!(edit in rv)) {
+                    rv[edit] = 1;
+                  } else {
+                    rv[edit] += 1;
+                  }
+                }
+              }
+            }
+          }
+
+          if (s[1]) {
+            for (j = 0, jlen = this.alphabet.length; j < jlen; j++) {
+              edit = s[0] + this.alphabet[j] + s[1];
+
+              if (!knownOnly || this.check(edit)) {
+                if (!(edit in rv)) {
+                  rv[edit] = 1;
+                } else {
+                  rv[edit] += 1;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return rv;
+  }
+
+  private  correct(word: string, limit: number) {
+    // Get the edit-distance-1 and edit-distance-2 forms of this word.
+    const ed1 = this.edits1(word);
+    const ed2 = this.edits1(ed1, true);
+
+    // Sort the edits based on how many different ways they were created.
+    const weightedCorrections = ed2;
+
+    for (const ed1word in ed1) {
+      if (!this.check(ed1word)) {
+        continue;
+      }
+
+      if (ed1word in weightedCorrections) {
+        weightedCorrections[ed1word] += ed1[ed1word];
+      } else {
+        weightedCorrections[ed1word] = ed1[ed1word];
+      }
+    }
+
+    let i;
+
+    const sortedCorrections = [];
+
+    for (i in weightedCorrections) {
+      if (weightedCorrections.hasOwnProperty(i)) {
+        sortedCorrections.push([ i, weightedCorrections[i] ]);
+      }
+    }
+
+    sortedCorrections.sort(this.sorter).reverse();
+
+    const rv = [];
+
+    let capitalizationScheme = "lowercase";
+
+    if (word.toUpperCase() === word) {
+      capitalizationScheme = "uppercase";
+    } else if (word.substr(0, 1).toUpperCase() + word.substr(1).toLowerCase() === word) {
+      capitalizationScheme = "capitalized";
+    }
+
+    let workingLimit = limit;
+
+    for (i = 0; i < Math.min(workingLimit, sortedCorrections.length); i++) {
+      if ("uppercase" === capitalizationScheme) {
+        sortedCorrections[i][0] = sortedCorrections[i][0].toUpperCase();
+      } else if ("capitalized" === capitalizationScheme) {
+        sortedCorrections[i][0] = sortedCorrections[i][0].substr(0, 1).toUpperCase()
+        + sortedCorrections[i][0].substr(1);
+      }
+
+      if (
+        !this.hasFlag(sortedCorrections[i][0], "NOSUGGEST")
+      && rv.indexOf(sortedCorrections[i][0]) === -1) {
+        rv.push(sortedCorrections[i][0]);
+      } else {
+        // If one of the corrections is not eligible as a suggestion,
+        // make sure we still return the right number of suggestions.
+        workingLimit++;
+      }
+    }
+
+    return rv;
+  }
+
+  private sorter(a, b) {
+    if (a[1] < b[1]) {
+      return -1;
+    }
+
+    // @todo If a and b are equally weighted, add our own weight
+    // based on something like the key locations on this language's default keyboard.
+
+    return 1;
   }
 }

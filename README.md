@@ -3,34 +3,29 @@ Typo.js is a Typescript port of [Typo.js spellchecker](https://github.com/cfinke
 # Usage
 
 To use Typo in a Chrome extension, simply include the typo.js file in your extension's background page, and then initialize the dictionary like so:
+This is designed to be used within a web application and I removed the original dictionary table building.
+For Typo to work it needs the dictionary data already parsed and supplied to the constructor instead of the language string or .aff/.dic files, including:
+
+The dictionaryTable including all words and rule sets
+The compoundRules RegExp array
+The replacementTable array pairs
+The Hunspell affix flags object
 
 ```javascript
-var dictionary = new Typo("en_US");
-```
-
-To use Typo in a standard web application you need to pass a settings object that provides a path to the folder containing the desired dictionary.
-
-```javascript
-var dictionary = new Typo("en_US", false, false, { dictionaryPath: "typo/dictionaries" }),
-```
-
-If using in node.js, load it like so:
-
-```javascript
-var Typo = require("typo-js");
-var dictionary = new Typo([...]);
+const Typo = require("typo-js");
+const dictionary = new Typo(...);
 ```
 
 To check if a word is spelled correctly, do this:
 
 ```javascript
-var is_spelled_correctly = dictionary.check("mispelled");
+const is_spelled_correctly = dictionary.check("mispelled");
 ```
 
 To get suggested corrections for a misspelled word, do this:
 
 ```javascript
-var array_of_suggestions = dictionary.suggest("mispeling");
+const array_of_suggestions = dictionary.suggest("mispeling");
 
 // array_of_suggestions == ["misspelling", "dispelling", "misdealing", "misfiling", "misruling"]
 ```
@@ -47,10 +42,6 @@ Typo.js has full support for the following Hunspell affix flags:
 * KEEPCASE
 * NOSUGGEST
 * NEEDAFFIX
-
-# Demo
-
-There's a live demo of Typo.js at http://www.chrisfinke.com/files/typo-demo/ and a complete Node.js example file at examples/node/index.js.
 
 # Licensing
 

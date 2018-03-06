@@ -16,7 +16,9 @@
       "./node_modules/.bin/tsc && node concatenate.js build/ts/require-entry.js build/typo.js",
     "build": "./node_modules/.bin/tsc",
     "precommit": "lint-staged",
-    "prettier-watch": "onchange '**/*.js' -- prettier --write {{changed}}"
+    "prettier-watch": "onchange '**/*.js' -- prettier --write {{changed}}",
+    "test": "jest",
+    "inspect": "node --inspect-brk node_modules/.bin/jest --runInBand"
   },
   "lint-staged": {
     "*.{js,json,css,md}": ["prettier --write", "git add"]
@@ -26,8 +28,19 @@
     "typescript": "2.4.1"
   },
   "devDependencies": {
+    "@types/jest": "^22.2.0",
+    "@types/node": "^9.4.6",
     "husky": "^0.14.3",
+    "jest": "^22.4.2",
     "lint-staged": "^6.0.1",
-    "prettier": "1.10.2"
+    "prettier": "1.10.2",
+    "ts-jest": "^22.4.1"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"]
   }
 }

@@ -100,7 +100,7 @@ class Typo implements ITypo {
 
     // Check the replacement table.
     for (const replacementEntry of this.replacementTable) {
-      if (word.indexOf(replacementEntry[0]) !== -1) {
+      if (word.indexOf(replacementEntry.oldAffix) !== -1) {
         const correctedWord = word.replace(replacementEntry.oldAffix, replacementEntry.newAffix);
 
         if (this.check(correctedWord)) {

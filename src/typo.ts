@@ -135,13 +135,16 @@ class Typo implements ITypo {
       // means that the word is in the dictionary but has no flags.
       return true;
     } else if (typeof ruleCodes === "object") { // this.dictionary['hasOwnProperty'] will be a function.
-      for (const code of ruleCodes) {
-        if (!this.hasFlag(word, "ONLYINCOMPOUND", code)) {
-          return true;
+      if (ruleCodes.length > 0) {
+        for (const code of ruleCodes) {
+          if (!this.hasFlag(word, "ONLYINCOMPOUND", code)) {
+            return true;
+          }
         }
+      } else {
+          return !this.hasFlag(word, "ONLYINCOMPOUND", []);
       }
     }
-
     return false;
   }
 

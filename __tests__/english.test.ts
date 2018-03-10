@@ -6,13 +6,13 @@ let typo: ITypo;
 
 beforeAll(() => {
   const testDir = path.dirname(require.main.filename);
-  const dictData = JSON.parse(fs.readFileSync(`${testDir}/dictionaries/en_US.json`).toString());
-  typo = createTypo(
-    dictData.dictionaryTable,
-    dictData.compoundRules,
-    dictData.replacementTable,
-    dictData.flags,
-  );
+  const dictData = JSON.parse(fs.readFileSync(`${testDir}/dictionaries/en.json`).toString());
+  typo = createTypo({
+    compoundRules: dictData.compoundRules,
+    dictionaryTable: dictData.dictionaryTable,
+    flags: dictData.flags,
+    replacementTable: dictData.replacementTable,
+  });
 });
 
 test("correct words return true to check", () => {

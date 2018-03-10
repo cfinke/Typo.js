@@ -8,7 +8,7 @@ export function createTypo(dictData: IDictData): ITypo {
 }
 
 export interface IDictData {
-  compoundRules: RegExp[];
+  compoundRules: string[];
   dictionaryTable: {[key: string]: string[]};
   flags: {[key: string]: string};
   replacementTable: string[][];
@@ -33,7 +33,10 @@ class Typo implements ITypo {
   private replacementTable: IReplacementEntry[];
 
   constructor(dictData: IDictData) {
-    this.compoundRules = dictData.compoundRules;
+    this.compoundRules = dictData.compoundRules.map((rule) => {
+      const ruleSet = rule.split("/").slice(1);
+      return new RegExp(ruleSet[0], ruleSet[1]);
+    });
     this.dictionaryTable = dictData.dictionaryTable;
     this.flags = dictData.flags;
     this.replacementTable = dictData.replacementTable.map((entry: string[]) => {
@@ -45,6 +48,7 @@ class Typo implements ITypo {
     // Remove leading and trailing whitespace
     const trimmedWord = aWord.replace(/^\s\s*/, "").replace(/\s\s*$/, "");
 
+    debugger;
     if (this.checkExact(trimmedWord)) {
       return true;
     }

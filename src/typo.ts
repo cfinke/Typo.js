@@ -121,7 +121,7 @@ class Typo implements ITypo {
 
   private checkExact(word: string): boolean {
     const ruleCodes = this.dictionaryTable[word];
-    if (typeof ruleCodes === "undefined") {
+    if (ruleCodes == null) {
       // Check if this might be a compound word.
       if ("COMPOUNDMIN" in this.flags && word.length >= parseInt(this.flags.COMPOUNDMIN, 10)) {
         for (const rule of this.compoundRules) {
@@ -130,36 +130,18 @@ class Typo implements ITypo {
           }
         }
       }
-    } else if (ruleCodes === null) {
-      // a null (but not undefined) value for an entry in the dictionary table
+    } else if (ruleCodes.length === 0) {
+      // an empty value for an entry in the dictionary table
       // means that the word is in the dictionary but has no flags.
       return true;
-    } else if (typeof ruleCodes === "object") { // this.dictionary['hasOwnProperty'] will be a function.
-      if (ruleCodes.length > 0) {
-        for (const code of ruleCodes) {
-          if (!this.hasFlag(word, "ONLYINCOMPOUND", code)) {
-            return true;
-          }
-        }
-      } else {
-          return !this.hasFlag(word, "ONLYINCOMPOUND", []);
-      }
+    } else {
+        return !this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes);
     }
     return false;
   }
 
-  private hasFlag(word: string, flag: string, wordFlags?: string | string[]) {
-    if (flag in this.flags) {
-      if (typeof wordFlags === "undefined") {
-        wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
-      }
-
-      if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
-        return true;
-      }
-    }
-
-    return false;
+  private hasFlag(word: string, flag: string, wordFlags: string[] = this.dictionaryTable[word]) {
+    return wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1;
   }
 
   private edits1(words, knownOnly?) {

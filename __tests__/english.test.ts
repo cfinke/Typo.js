@@ -125,7 +125,7 @@ test("Compound words", () => {
   expect(typo.check("100st")).toBe(false);
 });
 
-test("Suggestions", () => {
+test.only("Suggestions", () => {
   expect(typo.suggest("speling", 3)).toEqual([ "spelling", "spieling", "spewing" ]);
 
   // Repeated calls function properly.

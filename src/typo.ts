@@ -14,11 +14,6 @@ export interface IDictData {
   replacementTable: string[][];
 }
 
-export interface IMemo {
-  limit: number;
-  suggestions: string[];
-}
-
 export interface IReplacementEntry {
   oldAffix: string;
   newAffix: string;
@@ -29,7 +24,6 @@ class Typo implements ITypo {
   private compoundRules: RegExp[];
   private dictionaryTable: {[key: string]: string[]};
   private flags: {[key: string]: string};
-  private memoized: {[word: string]: IMemo} = {};
   private replacementTable: IReplacementEntry[];
 
   constructor(dictData: IDictData) {
@@ -48,7 +42,6 @@ class Typo implements ITypo {
     // Remove leading and trailing whitespace
     const trimmedWord = aWord.replace(/^\s\s*/, "").replace(/\s\s*$/, "");
 
-    debugger;
     if (this.checkExact(trimmedWord)) {
       return true;
     }
@@ -88,39 +81,24 @@ class Typo implements ITypo {
 
   public suggest(word: string, limit = 5): string[] {
 
-    if (this.memoized.hasOwnProperty(word)) {
-      const memoizedLimit = this.memoized[word].limit;
-
-      // Only return the cached list if it's big enough or if there weren't enough suggestions
-      // to fill a smaller limit.
-      if (limit <= memoizedLimit || this.memoized[word].suggestions.length < memoizedLimit) {
-        return this.memoized[word].suggestions.slice(0, limit);
-      }
-    }
-
     if (this.check(word)) {
       return [];
     }
 
     // Check the replacement table.
     for (const replacementEntry of this.replacementTable) {
-      if (word.indexOf(replacementEntry.oldAffix) !== -1) {
+
+      if (word.indexOf(replacementEntry[0]) !== -1) {
         const correctedWord = word.replace(replacementEntry.oldAffix, replacementEntry.newAffix);
 
         if (this.check(correctedWord)) {
-          return [correctedWord];
+          return [ correctedWord ];
         }
       }
     }
 
     this.alphabet = "abcdefghijklmnopqrstuvwxyz";
-
-    this.memoized[word] = {
-      limit,
-      suggestions: this.correct(word, limit),
-    };
-
-    return this.memoized[word].suggestions;
+    return this.correct(word, limit);
   }
 
   private checkExact(word: string): boolean {
@@ -139,7 +117,7 @@ class Typo implements ITypo {
       // means that the word is in the dictionary but has no flags.
       return true;
     } else {
-        return !this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes);
+      return !this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes);
     }
     return false;
   }
@@ -148,138 +126,104 @@ class Typo implements ITypo {
     return wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1;
   }
 
-  private edits1(words, knownOnly?) {
-    const rv = {};
+  private edits1(words) {
+    let rv = [];
 
-    if (typeof words === "string") {
-      const word = words;
-      words = {};
-      words[word] = true;
-    }
+    for (const word of words) {
 
-    for (const word in words) {
-      if (words.hasOwnProperty(word)) {
-        for (let i = 0; i < word.length + 1; i++) {
-          let edit;
-          const s = [ word.substring(0, i), word.substring(i) ];
+      const splits = [];
 
-          if (s[1]) {
-            edit = s[0] + s[1].substring(1);
+      for (let i = 0; i < word.length + 1; i++) {
+        splits.push([ word.substring(0, i), word.substring(i, word.length) ]);
+      }
 
-            if (!knownOnly || this.check(edit)) {
-              if (!(edit in rv)) {
-                rv[edit] = 1;
-              } else {
-                rv[edit] += 1;
-              }
-            }
-          }
+      const deletes = [];
 
-          // Eliminate transpositions of identical letters
-          if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-            edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
+      for (const s of splits) {
+        if (s[1]) {
+          deletes.push(s[0] + s[1].substring(1));
+        }
+      }
 
-            if (!knownOnly || this.check(edit)) {
-              if (!(edit in rv)) {
-                rv[edit] = 1;
-              } else {
-                rv[edit] += 1;
-              }
-            }
-          }
+      const transposes = [];
 
-          if (s[1]) {
-            for (const letter of this.alphabet) {
-              // Eliminate replacement of a letter by itself
-              if (letter !== s[1].substring(0, 1)) {
-                edit = s[0] + letter + s[0].substring(1);
+      for (const s of splits) {
+        if (s[1].length > 1) {
+          transposes.push(s[0] + s[1][1] + s[1][0] + s[1].substring(2));
+        }
+      }
 
-                if (!knownOnly || this.check(edit)) {
-                  if (!(edit in rv)) {
-                    rv[edit] = 1;
-                  } else {
-                    rv[edit] += 1;
-                  }
-                }
-              }
-            }
-          }
+      const replaces = [];
 
-          if (s[1]) {
-            for (const letter of this.alphabet) {
-              edit = s[0] + letter + s[1];
-              if (!knownOnly || this.check(edit)) {
-                if (!(edit in rv)) {
-                  rv[edit] = 1;
-                } else {
-                  rv[edit] += 1;
-                }
-              }
-            }
+      for (const s of splits) {
+        if (s[1]) {
+          for (const letter of this.alphabet) {
+            replaces.push(s[0] + letter + s[1].substring(1));
           }
         }
+      }
+
+      const inserts = [];
+
+      for (const s of splits) {
+        if (s[1]) {
+          for (const letter of this.alphabet) {
+            replaces.push(s[0] + letter + s[1]);
+          }
+        }
+      }
+
+      rv = Array.prototype.concat.apply(rv, [deletes, transposes, replaces, inserts]);
+    }
+
+    return rv;
+  }
+
+  private known(words) {
+    const rv = [];
+
+    for (const word of words) {
+      if (this.check(word)) {
+        rv.push(word);
       }
     }
 
     return rv;
   }
 
-  private correct(word: string, limit: number): string[] {
+  private correct(word, limit) {
     // Get the edit-distance-1 and edit-distance-2 forms of this word.
-    const ed1 = this.edits1(word);
-    const ed2 = this.edits1(ed1, true);
+    const ed1 = this.edits1([word]);
+    const ed2 = this.edits1(ed1);
+
+    const corrections = this.known(ed1).concat(this.known(ed2));
 
     // Sort the edits based on how many different ways they were created.
-    const weightedCorrections = ed2;
+    const weightedCorrections = {};
 
-    for (const ed1word in ed1) {
-      if (!this.check(ed1word)) {
-        continue;
-      }
-
-      if (ed1word in weightedCorrections) {
-        weightedCorrections[ed1word] += ed1[ed1word];
+    for (const c of corrections) {
+      if (!(c in weightedCorrections)) {
+        weightedCorrections[c] = 0;
       } else {
-        weightedCorrections[ed1word] = ed1[ed1word];
+        weightedCorrections[c] += 1;
       }
     }
 
     const sortedCorrections = [];
 
-    for (const i in weightedCorrections) {
-      if (weightedCorrections.hasOwnProperty(i)) {
-        sortedCorrections.push([ i, weightedCorrections[i] ]);
+    for (const wc in weightedCorrections) {
+      if (weightedCorrections.hasOwnProperty(wc)) {
+        sortedCorrections.push([ wc, weightedCorrections[wc] ]);
       }
     }
 
     sortedCorrections.sort(this.sorter).reverse();
 
-    const rv: string[] = [];
+    const rv = [];
 
-    const capitalizationScheme = word.toUpperCase() === word
-      ?  "uppercase"
-      : word.substr(0, 1).toUpperCase() + word.substr(1).toLowerCase() === word
-        ? "capitalized"
-        : "lowercase";
-
-    let workingLimit = limit;
-
-    for (let i = 0; i < Math.min(workingLimit, sortedCorrections.length); i++) {
-      if ("uppercase" === capitalizationScheme) {
-        sortedCorrections[i][0] = sortedCorrections[i][0].toUpperCase();
-      } else if ("capitalized" === capitalizationScheme) {
-        sortedCorrections[i][0] = sortedCorrections[i][0].substr(0, 1).toUpperCase()
-        + sortedCorrections[i][0].substr(1);
-      }
-
-      if (
-        !this.hasFlag(sortedCorrections[i][0], "NOSUGGEST")
-      && rv.indexOf(sortedCorrections[i][0]) === -1) {
+    for (let i = 0, len = Math.min(limit, sortedCorrections.length); i < len; i++) {
+      if (!this.hasFlag(sortedCorrections[i][0], "NOSUGGEST")) {
         rv.push(sortedCorrections[i][0]);
-      } else {
-        // If one of the corrections is not eligible as a suggestion,
-        // make sure we still return the right number of suggestions.
-        workingLimit++;
       }
     }
 
@@ -290,6 +234,7 @@ class Typo implements ITypo {
     if (a[1] < b[1]) {
       return -1;
     }
+
     return 1;
   }
 }

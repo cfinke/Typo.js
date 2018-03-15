@@ -1,0 +1,46 @@
+{
+  "name": "typo-js",
+  "version": "1.1.1",
+  "description": "A Typescript port of Typo.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/marcelorisoli/Typo.js.git"
+  },
+  "keywords": ["spellcheck", "spellchecker", "hunspell", "typo", "speling"],
+  "author": "Marcelo Risoli <marcelo.risoli@prezi.com>",
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/marcelorisoli/Typo.js#readme",
+  "scripts": {
+    "postinstall": "npm run build-require",
+    "build-require":
+      "./node_modules/.bin/tsc && node concatenate.js build/ts/require-entry.js build/typo.js",
+    "build": "./node_modules/.bin/tsc",
+    "precommit": "lint-staged",
+    "prettier-watch": "onchange '**/*.js' -- prettier --write {{changed}}",
+    "test": "jest",
+    "inspect": "node --inspect-brk node_modules/.bin/jest --runInBand"
+  },
+  "lint-staged": {
+    "*.{js,json,css,md}": ["prettier --write", "git add"]
+  },
+  "dependencies": {
+    "google-closure-compiler": "20180101.0.0",
+    "typescript": "2.4.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^22.2.0",
+    "@types/node": "^9.4.6",
+    "husky": "^0.14.3",
+    "jest": "^22.4.2",
+    "lint-staged": "^6.0.1",
+    "prettier": "1.10.2",
+    "ts-jest": "^22.4.1"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "target": "es5",
+    "declarationDir": "build/dts",
+    "outDir": "build/ts"
+  },
+  "include": ["src/**.ts"]
+}

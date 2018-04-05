@@ -17,35 +17,10 @@ var Typo;
 /**
  * Typo constructor.
  *
- * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
- *                              "en_US". This is only used to auto-load dictionaries.
- * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
- *                              and Typo.js is being used in a Chrome extension, the .aff
- *                              file will be loaded automatically from
- *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
- *                              In other environments, it will be loaded from
- *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
- * @param {String} [wordsData]  The data from the dictionary's .dic file. If omitted
- *                              and Typo.js is being used in a Chrome extension, the .dic
- *                              file will be loaded automatically from
- *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
- *                              In other environments, it will be loaded from
- *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
- * @param {Object} [settings]   Constructor settings. Available properties are:
- *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
- *                              environment.
- *                              {Object} [flags]: flag information.
- *                              {Boolean} [asyncLoad]: If true, affData and wordsData will be loaded
- *                              asynchronously.
- *                              {Function} [loadedCallback]: Called when both affData and wordsData
- *                              have been loaded. Only used if asyncLoad is set to true. The parameter
- *                              is the instantiated Typo object.
- *
  * @returns {Typo} A Typo object.
  */
 
-Typo = function (settings) {
-	this.settings = settings || {};
+Typo = function () {
 
 	this.dictionary = null;
 
@@ -57,11 +32,10 @@ Typo = function (settings) {
 
 	this.replacementTable = [];
 
-	this.flags = this.settings.flags || {};
+	this.flags = {};
 
 	this.memoized = {};
 
-	this.loaded = false;
 
 	return this;
 };
@@ -85,8 +59,43 @@ Typo.prototype = {
 	},
 
 
-	// Loads the library from remote files
-	load : function(dictionary, affData, wordsData) {
+	/**
+	 * Loads the library from remote files
+	 * 
+	 * NOTE: If a character set is given on the .aff file and it is not ISO8859-1, then it must be manually given as a setting. This library currently does not support automatic parsing of that setting.
+	 * 
+	 * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
+	 *                              "en_US". This is only used to auto-load dictionaries.
+	 * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
+	 *                              and Typo.js is being used in a Chrome extension, the .aff
+	 *                              file will be loaded automatically from
+	 *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
+	 *                              In other environments, it will be loaded from
+	 *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
+	 * @param {String} [wordsData]  The data from the dictionary's .dic file. If omitted
+	 *                              and Typo.js is being used in a Chrome extension, the .dic
+	 *                              file will be loaded automatically from
+	 *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
+	 *                              In other environments, it will be loaded from
+	 *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
+	 * @param {Object} [settings]   Constructor settings. Available properties are:
+	 *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
+	 *                              environment.
+	 *                              {Object} [flags]: flag information.
+	 *                              {Boolean} [asyncLoad]: If true, affData and wordsData will be loaded
+	 *                              asynchronously.
+	 *                              {Function} [loadedCallback]: Called when both affData and wordsData
+	 *                              have been loaded. Only used if asyncLoad is set to true. The parameter
+	 *                              is the instantiated Typo object.
+	 * 								{String} [charset]: The character set specified on the first line of the
+	 * 								.aff file if specified.
+	 */
+	load : function(dictionary, affData, wordsData, settings) {
+
+		settings = settings || {};
+
+		this.flags = settings.flags || {};
+
 
 		var self = this;
 
@@ -131,9 +140,9 @@ Typo.prototype = {
 		}
 
 		function readDataFile(url, setFunc) {
-			var response = self._readFile(url, null, self.settings.asyncLoad);
+			var response = self._readFile(url, settings.charset, settings.asyncLoad);
 
-			if (self.settings.asyncLoad) {
+			if (settings.asyncLoad) {
 				response.then(function(data) {
 					setFunc(data);
 				});
@@ -255,7 +264,8 @@ Typo.prototype = {
 	 */
 
 	_readFile : function (path, charset, async) {
-		charset = charset || "utf8";
+		// NOTE: Node 6.4.0+ is required for the default character sets
+		charset = charset || "ISO8859-1";
 
 		if (typeof XMLHttpRequest !== 'undefined') {
 			var promise;
@@ -290,6 +300,11 @@ Typo.prototype = {
 			// Node.js
 			var fs = require("fs");
 
+			// Some charsets go by another name for node buffer
+			if(charset.toUpperCase() === 'ISO8859-1') {
+				charset = 'latin1';
+			}
+			
 			try {
 				if (fs.existsSync(path)) {
 					var stats = fs.statSync(path);

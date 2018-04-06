@@ -1,13 +1,13 @@
 function run() {
 	var utilityDict = new Typo();
-	var affData = utilityDict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
-	var wordData = utilityDict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+	var affData = utilityDict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.aff"));
+	var wordData = utilityDict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.dic"));
 	
 	var hashDict = new Typo("en_US", affData, wordData);
 	
 	testDictionary(hashDict);
 
-	var dict = new Typo("en_US", null, null, { dictionaryPath : "../typo/dictionaries", asyncLoad : true, loadedCallback : function () {
+	var dict = new Typo("en_US", null, null, { dictionaryPath : "../src/dictionaries", asyncLoad : true, loadedCallback : function () {
 		testDictionary(dict);
 	}});
 }

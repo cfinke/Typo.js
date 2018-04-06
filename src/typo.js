@@ -36,6 +36,10 @@ Typo = function () {
 
 	this.memoized = {};
 
+	if(arguments.length > 0) {
+		this.load.apply(this, arguments);
+	}
+
 
 	return this;
 };
@@ -51,6 +55,14 @@ Typo.prototype = {
 	loadRaw : function (obj) {
 		for (var i in obj) {
 			if (obj.hasOwnProperty(i)) {
+
+				if(i === 'compoundRules') {
+					obj[i] = obj[i].map((r) => {
+						var m = r.match(/\/(.*)\/(.*)?/);
+						return new RegExp(m[1], m[2] || '');
+					});
+				}
+
 				this[i] = obj[i];
 			}
 		}
@@ -117,7 +129,7 @@ Typo.prototype = {
 					path = settings.dictionaryPath;
 				}
 				else {
-					path = "typo/dictionaries";
+					path = "src/dictionaries";
 				}
 
 				if (!affData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
@@ -724,13 +736,18 @@ Typo.prototype = {
 
 		var ruleCodes = this._getDictionaryEntry(word);
 
+		console.log(ruleCodes);
+
 		var i, _len;
+
+		console.log(this.compoundRules);
 
 		if (typeof ruleCodes === 'undefined') {
 			// Check if this might be a compound word.
 			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
 				for (i = 0, _len = this.compoundRules.length; i < _len; i++) {
 					if (word.match(this.compoundRules[i])) {
+						console.log('HERE');
 						return true;
 					}
 				}
@@ -739,11 +756,13 @@ Typo.prototype = {
 		else if (ruleCodes === null) {
 			// a null (but not undefined) value for an entry in the dictionary table
 			// means that the word is in the dictionary but has no flags.
+			console.log('HERE1');
 			return true;
 		}
 		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
 			for (i = 0, _len = ruleCodes.length; i < _len; i++) {
 				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
+					console.log('HERE2');
 					return true;
 				}
 			}

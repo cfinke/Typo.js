@@ -439,11 +439,15 @@ Typo.prototype = {
 
 					fs.readSync(fileDescriptor, buffer, 0, buffer.length, null);
 
+					var val;
 					if(arrayBuffer) {
-						return buffer.buffer;
+						val = buffer.buffer;
+					}
+					else {
+						val = buffer.toString(charset, 0, buffer.length);;
 					}
 
-					return buffer.toString(charset, 0, buffer.length);
+					return async? Promise.resolve(val) : val;
 				}
 				else {
 					console.log("Path " + path + " does not exist.");

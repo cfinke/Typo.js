@@ -41,9 +41,9 @@ var dictionary = new Typo();
 dictionary.loadPrecomputed([...]); // Supports most of the same settings as the constructor
 ```
 
-If you have some other set of `.aff` and `.dic` files, precompute the `.sst` and `.json` files used by the above technique by running:
+Assuming you installed this as a node module, if you have some other set of `.aff` and `.dic` files, precompute the `.sst` and `.json` files used by the above technique by running:
 
-`./bin/precompute-dic.js [en_US|other_code] [path/to/dictionaries]` in your terminal
+`./node_modules/.bin/typo-precompute [en_US|other_code] [path/to/dictionaries]` using your terminal in your project's root folder
 
 NOTE: The precompute script will require a lot of memory if processing a large dictionary.
 

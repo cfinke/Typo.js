@@ -70,13 +70,114 @@ Typo.prototype = {
 		return this;
 	},
 
+	/**
+	 * Similar to load() except loads the precomputed .json and .sst files 
+	 * 
+	 * NOTE: This is currently only supported in environments with require()
+	 * NOTE: In order to create these files see the 'bin/precompute-dic.js' script with usage in the README.
+	 * NOTE: sstData if given is expected as 
+	 * 
+	 * @param {String} dictionary The locale code of the dictionary being used. e.g.,
+	 *                               "en_US". This is only used to auto-load dictionaries.
+	 * @param {String} [jsonData]    The data from the dictionary's .json file. If omitted
+	 *                               and Typo.js is being used in a Chrome extension, the .json
+	 *                               file will be loaded automatically from
+	 *                               lib/typo/dictionaries/[dictionary]/[dictionary].json
+	 *                               In other environments, it will be loaded from
+	 *                               [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].json
+	 * @param {ArrayBuffer} [sstData] The data from the dictionary's .sst file. If omitted
+	 *                               and Typo.js is being used in a Chrome extension, the .sst
+	 *                               file will be loaded automatically from
+	 *                               lib/typo/dictionaries/[dictionary]/[dictionary].sst
+	 *                               In other environments, it will be loaded from
+	 *                               [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].sst
+     * @param {Object} [settings]    Loader settings. Available properties are:
+	 *                               {String} [dictionaryPath]: path to load dictionary from in non-chrome
+	 *                               environment.
+	 *                               {Boolean} [asyncLoad]: If true, affData and wordsData will be loaded
+	 *                               asynchronously.
+	 *                               {Function} [loadedCallback]: Called when both affData and wordsData
+	 *                               have been loaded. Only used if asyncLoad is set to true. The parameter
+	 *                               is the instantiated Typo object.
+	 */
+	loadPrecomputed : function (dictionary, jsonData, sstData, settings) {
+
+		var SSTable = require('./sstable');
+
+
+		settings = settings || {};
+
+
+		if(!jsonData) {
+			jsonData = this._readFile(this._resolveFilePath(dictionary, 'json', settings.dictionaryPath), 'utf8', settings.asyncLoad);
+		}
+		else if(settings.asyncLoad) {
+			jsonData = Promise.resolve(jsonData);
+		}
+
+		if(!sstData) {
+			sstData = this._readFile(this._resolveFilePath(dictionary, 'sst', settings.dictionaryPath), null, settings.asyncLoad, true);
+		}
+		else if(settings.asyncLoad) {
+			sstData = Promise.resolve(sstData);
+		}
+
+
+		
+		var self = this;
+
+
+		if(settings.asyncLoad) {
+			Promise.all([jsonData, sstData]).then(function(values) {
+				jsonData = values[0];
+				sstData = values[1];
+				finishLoading();
+			});
+		}
+		else {
+			finishLoading();
+		}
+
+
+
+		function finishLoading() {
+
+			var props = JSON.parse(jsonData);
+
+			self.loadRaw(props);
+
+			var table = new SSTable(sstData);
+
+			self.dictionaryTable = table;
+			self._getDictionaryEntry = function(k) {
+			
+				var s = self.dictionaryTable.get(k);
+				if(s === undefined) {
+					return s;
+				}
+				else if (s == '') {
+					return null;
+				}
+			
+				return [s.split('')];
+			}
+
+
+			if(settings.asyncLoad && settings.loadedCallback) {
+				settings.loadedCallback(self);
+			}
+
+		}
+
+	},
+
 
 	/**
 	 * Loads the library from remote files
 	 * 
 	 * NOTE: If a character set is given on the .aff file and it is not ISO8859-1, then it must be manually given as a setting. This library currently does not support automatic parsing of that setting.
 	 * 
-	 * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
+	 * @param {String} dictionary The locale code of the dictionary being used. e.g.,
 	 *                              "en_US". This is only used to auto-load dictionaries.
 	 * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
 	 *                              and Typo.js is being used in a Chrome extension, the .aff
@@ -90,7 +191,7 @@ Typo.prototype = {
 	 *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
 	 *                              In other environments, it will be loaded from
 	 *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
-	 * @param {Object} [settings]   Constructor settings. Available properties are:
+	 * @param {Object} [settings]   Loader settings. Available properties are:
 	 *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
 	 *                              environment.
 	 *                              {Object} [flags]: flag information.
@@ -116,39 +217,16 @@ Typo.prototype = {
 		// Loop-control variables.
 		var i, j, _len, _jlen;
 
-		if (dictionary) {
-			this.dictionary = dictionary;
 
-			// If the data is preloaded, just setup the Typo object.
-			if (affData && wordsData) {
-				setup();
-			}
-			// Loading data for Chrome extentions.
-			else if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
-				if (settings.dictionaryPath) {
-					path = settings.dictionaryPath;
-				}
-				else {
-					path = "src/dictionaries";
-				}
+		this.dictionary = dictionary;
 
-				if (!affData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
-				if (!wordsData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
-			}
-			else {
-				if (settings.dictionaryPath) {
-					path = settings.dictionaryPath;
-				}
-				else if (typeof __dirname !== 'undefined') {
-					path = __dirname + '/dictionaries';
-				}
-				else {
-					path = './dictionaries';
-				}
-
-				if (!affData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
-				if (!wordsData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
-			}
+		// If the data is preloaded, just setup the Typo object.
+		if (affData && wordsData) {
+			setup();
+		}
+		else {
+			if (!affData) readDataFile(this._resolveFilePath(dictionary, 'aff', settings.dictionaryPath), setAffData);
+			if (!wordsData) readDataFile(this._resolveFilePath(dictionary, 'dic', settings.dictionaryPath), setWordsData);
 		}
 
 		function readDataFile(url, setFunc) {
@@ -188,6 +266,36 @@ Typo.prototype = {
 			self._loadFinish(settings);
 		}
 
+	},
+
+	_resolveFilePath : function(dictionary, extension, dictionaryPath) {
+
+		var path;
+
+		// Loading data for Chrome extentions.
+		if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
+			if (dictionaryPath) {
+				path = dictionaryPath;
+			}
+			else {
+				path = "src/dictionaries";
+			}
+
+			return chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + "." + extension);
+		}
+		else {
+			if (dictionaryPath) {
+				path = dictionaryPath;
+			}
+			else if (typeof __dirname !== 'undefined') {
+				path = __dirname + '/dictionaries';
+			}
+			else {
+				path = './dictionaries';
+			}
+
+			return path + "/" + dictionary + "/" + dictionary + "." + extension;
+		}
 	},
 
 	// Loads the AFF From a string containing it
@@ -275,7 +383,7 @@ Typo.prototype = {
 	 *          always returned.
 	 */
 
-	_readFile : function (path, charset, async) {
+	_readFile : function (path, charset, async, arrayBuffer) {
 		// NOTE: Node 6.4.0+ is required for the default character sets
 		charset = charset || "ISO8859-1";
 
@@ -288,7 +396,7 @@ Typo.prototype = {
 				promise = new Promise(function(resolve, reject) {
 					req.onload = function() {
 						if (req.status === 200) {
-							resolve(req.responseText);
+							resolve(arrayBuffer? req.response : req.responseText);
 						}
 						else {
 							reject(req.statusText);
@@ -301,12 +409,16 @@ Typo.prototype = {
 				});
 			}
 
-			if (req.overrideMimeType)
+			if (arrayBuffer) {
+				req.responseType = "arraybuffer";
+			}
+			else if (req.overrideMimeType) {
 				req.overrideMimeType("text/plain; charset=" + charset);
+			}
 
 			req.send(null);
 
-			return async ? promise : req.responseText;
+			return async ? promise : (buffer? req.response : req.responseText);
 		}
 		else if (typeof require !== 'undefined') {
 			// Node.js
@@ -326,6 +438,10 @@ Typo.prototype = {
 					var buffer = new Buffer(stats.size);
 
 					fs.readSync(fileDescriptor, buffer, 0, buffer.length, null);
+
+					if(arrayBuffer) {
+						return buffer.buffer;
+					}
 
 					return buffer.toString(charset, 0, buffer.length);
 				}

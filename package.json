@@ -23,5 +23,8 @@
   "tonicExample": "var Typo = require('typo-js'); var dictionary = new Typo('en_US'); dictionary.check('mispelled');",
   "browser": {
     "fs": false
+  },
+  "dependencies": {
+    "utf8": "^3.0.0"
   }
 }

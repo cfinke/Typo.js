@@ -41,17 +41,21 @@ class SSTable {
 			var str = this._bytes.slice(cur, cur + strLen);
 			cur += strLen;
 
-			this._bins.push([ off, prefixLen, str ]);
+			this._bins.push({ off: off, pfx: prefixLen, str: str });
 		}
 
 		this._start = cur;
 
+		for(var i = 0; i < this._bins.length; i++) {
+			this._bins[i].off += cur;
+		}
+
 		// For convenience, we add another end stop bin
-		this._bins.push([ buf.byteLength - cur ]);
+		this._bins.push([ buf.byteLength ]);
 	}
 
 	get(key) {
-		var kbytes = this._toUTF8(key);
+		var kbytes = toUTF8(key);
 
 
 		// Binary search index for the right bin
@@ -60,8 +64,8 @@ class SSTable {
 		
 		var midI;
 		while(endI - startI > 1) {
-			midI = Math.floor((endI + startI) / 2);
-			if(this._arrCompare(kbytes, this._bins[midI][2]) >= 0) { // If key is after the start of the bin
+			midI = (endI + startI) >> 1; // Math.floor((endI + startI) / 2);
+			if(arrCompare(kbytes, this._bins[midI].str) >= 0) { // If key is after the start of the bin
 				startI = midI;
 			}
 			else {
@@ -74,31 +78,31 @@ class SSTable {
 
 
 		// In order to be in this bin, the prefix must match
-		var pfxLen = this._bins[idx][1];
+		var pfxLen = this._bins[idx].pfx;
 		if(kbytes.length < pfxLen) {
 			return undefined;
 		}
 
 		for(var i = 0; i < pfxLen; i++) {
-			if(this._bins[idx][2][i] !== kbytes[i]) {
+			if(this._bins[idx].str[i] !== kbytes[i]) {
 				return undefined;
 			}
 		}
 
 		// Remove prefix from query key
-		kbytes = kbytes.slice(pfxLen);
-		var klen = kbytes.length;
+		//kbytes = kbytes.slice(pfxLen);
+		var klen = kbytes.length - pfxLen;
 
 
 		// We need to scan the entire bin to 
 
-		var start = this._start + this._bins[idx][0],
-			end = this._start + this._bins[idx + 1][0];
+		var start = this._bins[idx].off,
+			end = this._bins[idx + 1].off;
 
 		var match = false,
 			len,
 			i;
-
+		
 
 		while(start < end) {
 			// Read key
@@ -106,7 +110,7 @@ class SSTable {
 			if(len === klen) {
 				match = true;
 				for(i = 0; i < len; i++) {
-					if(this._bytes[start + i] !== kbytes[i]) {
+					if(this._bytes[start + i] !== kbytes[pfxLen + i]) {
 						match = false;
 						break;
 					}
@@ -117,7 +121,7 @@ class SSTable {
 			// Read value
 			len = this._bytes[start++];
 			if(match) {
-				return this._fromUTF8(start, len);
+				return fromUTF8(this._bytes, start, len);
 			}
 
 			start += len; // Advance by value size
@@ -127,52 +131,57 @@ class SSTable {
 		return undefined;
 	}
 
-	// Comparison of binary strings
-	_arrCompare(a, b) {
-		for(var i = 0; i < Math.min(a.length, b.length); i++) {
-			if(a[i] < b[i]) {
-				return -1;
-			}
-			else if(a[i] > b[i]) {
-				return 1;
-			}
-		}
-
-		if(a.length === b.length) {
-			return 0;
-		}
-
-		if(a.length > b.length) {
-			return 1;
-		}
-		else {
-			return -1;
-		}
-	}
-
-
-	// Converts a javascript string to a list of numbers representing
-	_toUTF8(k) {
-		k = utf8.encode(k);
-		var out = []
-
-		for(var i = 0; i < k.length; i++) {
-			out.push(k.charCodeAt(i));
-		}
-
-		return out;
- 	}
-
-	_fromUTF8(start, len) {
-		var s = '';
-		for(var i = 0; i < len; i++) {
-			var si = String.fromCharCode(this._bytes[start + i]);
-			s += si;
-		}
-
-		return utf8.decode(s);
-	}
 
 }
+
+// Converts a javascript string to a list of numbers representing
+function toUTF8(k) {
+	k = utf8.encode(k);
+	var out = []
+
+	for(var i = 0; i < k.length; i++) {
+		out.push(k.charCodeAt(i));
+	}
+
+	return out;
+ }
+
+function fromUTF8(bytes, start, len) {
+	var s = '';
+	for(var i = 0; i < len; i++) {
+		var si = String.fromCharCode(bytes[start + i]);
+		s += si;
+	}
+
+	return utf8.decode(s);
+}
+
+// Comparison of binary strings
+function arrCompare(a, b) {
+	var len = Math.min(a.length, b.length)
+	for(var i = 0; i < len; i++) {
+		if(a[i] < b[i]) {
+			return -1;
+		}
+		else if(a[i] > b[i]) {
+			return 1;
+		}
+	}
+
+	return a.length - b.length;
+
+	/*
+	if(a.length === b.length) {
+		return 0;
+	}
+	else if(a.length > b.length) {
+		return 1;
+	}
+	else {
+		return -1;
+	}
+	*/
+}
+
 
 module.exports = SSTable;

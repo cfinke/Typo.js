@@ -105,7 +105,7 @@ Typo.prototype = {
 		var i, j, _len, _jlen;
 
 		if (dictionary) {
-			self.dictionary = dictionary;
+			this.dictionary = dictionary;
 
 			// If the data is preloaded, just setup the Typo object.
 			if (affData && wordsData) {
@@ -113,8 +113,8 @@ Typo.prototype = {
 			}
 			// Loading data for Chrome extentions.
 			else if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
-				if (self.settings.dictionaryPath) {
-					path = self.settings.dictionaryPath;
+				if (settings.dictionaryPath) {
+					path = settings.dictionaryPath;
 				}
 				else {
 					path = "typo/dictionaries";
@@ -124,8 +124,8 @@ Typo.prototype = {
 				if (!wordsData) readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
 			}
 			else {
-				if (self.settings.dictionaryPath) {
-					path = self.settings.dictionaryPath;
+				if (settings.dictionaryPath) {
+					path = settings.dictionaryPath;
 				}
 				else if (typeof __dirname !== 'undefined') {
 					path = __dirname + '/dictionaries';
@@ -173,7 +173,7 @@ Typo.prototype = {
 
 			self.dictionaryTable = self._parseDIC(wordsData);
 
-			self._loadFinish();
+			self._loadFinish(settings);
 		}
 
 	},
@@ -205,7 +205,7 @@ Typo.prototype = {
 
 
 	// Perform any steps needing after both the DIC and the AFF are in
-	_loadFinish : function () {
+	_loadFinish : function (settings) {
 
 		// Loop-control variables.
 		var i, j, _len, _jlen;
@@ -243,8 +243,8 @@ Typo.prototype = {
 
 		this.loaded = true;
 
-		if (this.settings.asyncLoad && this.settings.loadedCallback) {
-			this.settings.loadedCallback(this);
+		if (settings.asyncLoad && settings.loadedCallback) {
+			settings.loadedCallback(this);
 		}
 	},
 

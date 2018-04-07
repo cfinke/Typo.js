@@ -13,7 +13,8 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path')
+const path = require('path');
+const sstab = require('sstab');
 
 var DICT = process.argv[2] || 'en_US';
 var FOLDER = path.resolve(process.argv[3] || (__dirname + '/../src/dictionaries/'));
@@ -32,16 +33,16 @@ console.log('Flags:', dict.flags)
 var dt = dict.dictionaryTable;
 
 
-var pairs = [];
+var obj = {};
 
-console.log('1/4 Extracting words');
+console.log('1/4 Compressing values');
 for(var k in dt) {
 	if(dt.hasOwnProperty(k)) {
 		var v = dt[k]? dt[k] : [];
 
 		// Making that that the charset loading correctly
 		if(k.slice(2) == 'rich' && k[0] == 'Z') {
-			console.log('Hello', k.charCodeAt(1), 'Zürich'.charCodeAt(1)); // Should be 'Zürich'
+			console.log(k.charCodeAt(1), '==', 'Zürich'.charCodeAt(1)); // Should be 'Zürich'
 		}
 		
 		// Remove rules that have already been applied
@@ -59,119 +60,17 @@ for(var k in dt) {
 			console.log('Unsupported flags:', typeof(v));
 		}
 
-
-		pairs.push({ k: Buffer.from(k, 'utf8'), v: v });
+		obj[k] = v;
 	}
 }
 
 
-console.log('2/4 Creating table');
+console.log('2/3 Creating table');
 
-// This will perform a sort on UTF-8 strings in the buffers
-pairs.sort((a, b) => {
-	return Buffer.compare(a.k, b.k);
-})
+var buf = sstab.build(obj);
 
 
-console.log('3/4 Binning');
-
-
-// Generate bin boundaries
-var bins = []; // NOTE: This is an array of buffers
-var strings = []; // < Also an array of buffers
-
-var pos = 0;
-var binI = 0, /**< Starting pair index for the current bin */
-	prefix = null; /**< Common prefix of all keys seen so far in this bin */
-
-var i; /**< Index of the current pair we are on */
-
-// Called when we want to flush all pairs in the range [binI, i) into the buffer we are building
-function finishBucket() {
-
-	var posBuf = Buffer.allocUnsafe(4);
-	posBuf.writeUInt32LE(pos, 0);
-
-	var b = Buffer.concat([
-		posBuf, /**< 32bit position in table (starting at end of indexes) */
-		Buffer.from([ prefix.length ]), /**< Number of prefix bytes */
-		Buffer.from([ pairs[binI].k.byteLength ]),  /**< Length of key below */
-		pairs[binI].k /**< The full key located at the beginning of this bucket */
-	]);
-	bins.push(b);
-
-	for(var j = binI; j < i; j++) {
-
-		var p = pairs[j];
-
-		var kb = p.k;
-		kb = kb.slice(prefix.length);
-
-		var vb = Buffer.from(p.v, 'utf8');
-
-		var str = Buffer.concat([
-			Buffer.from([ kb.byteLength ]),
-			kb,
-			Buffer.from([ vb.byteLength ]),
-			vb
-		]);
-
-		strings.push(str);
-		pos += str.length;
-	}
-}
-
-for(i = 0; i < pairs.length; i++) {
-
-	// At a fixed interval, flush the button and start a new one
-	if(i % BINSIZE === 0) {
-		// Finish the last button
-		if(i > 0) {
-			finishBucket();
-		}
-
-		// Start a new bucket
-		binI = i;
-		prefix = pairs[i].k;
-	}
-	// Otherwise, we are still adding to a bucket, so update the prefix seen so far
-	else {
-		var c;
-		for(c = 0; c < Math.min(pairs[i].k.byteLength, prefix.byteLength); c++) {
-			if(pairs[i].k[c] !== prefix[c]) {
-				break;
-			}
-		}
-
-		prefix = prefix.slice(0, c);
-	}
-
-	if(i % 2000 === 0) {
-		console.log('- ' + i + ' / ' + pairs.length);
-	}
-}
-
-if(prefix !== null) {
-	finishBucket();
-}
-
-
-console.log('- Created: ' + bins.length + ' bins from ' + pairs.length + ' key-value pairs');
-
-
-// Make one file out of all of the buffers
-
-var bufBinsLen = Buffer.allocUnsafe(4);
-bufBinsLen.writeUInt32LE(bins.length);
-var bufBins = Buffer.concat(bins);
-var bufStrings = Buffer.concat(strings);
-
-var sstBuf = Buffer.concat([ bufBinsLen, bufBins, bufStrings ]);
-
-
-
-
-console.log('4/4 Saving');
+console.log('3/3 Saving');
 
 // Generate metadata file
 fs.writeFileSync(FOLDER + `/${DICT}/${DICT}.json`, JSON.stringify({
@@ -185,7 +84,7 @@ fs.writeFileSync(FOLDER + `/${DICT}/${DICT}.json`, JSON.stringify({
 	loaded: dict.loaded
 }))
 
-fs.writeFileSync(FOLDER + `/${DICT}/${DICT}.sst`, sstBuf);
+fs.writeFileSync(FOLDER + `/${DICT}/${DICT}.sst`, buf);
 
 console.log('Done!');
 

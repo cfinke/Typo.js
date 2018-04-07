@@ -102,7 +102,7 @@ Typo.prototype = {
 	 */
 	loadPrecomputed : function (dictionary, jsonData, sstData, settings) {
 
-		var SSTable = require('./sstable');
+		var SSTable = require('sstab/src/sstable');
 
 
 		settings = settings || {};

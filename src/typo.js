@@ -57,7 +57,7 @@ Typo.prototype = {
 			if (obj.hasOwnProperty(i)) {
 
 				if(i === 'compoundRules') {
-					obj[i] = obj[i].map((r) => {
+					obj[i] = obj[i].map(function(r) {
 						var m = r.match(/\/(.*)\/(.*)?/);
 						return new RegExp(m[1], m[2] || '');
 					});
@@ -102,7 +102,7 @@ Typo.prototype = {
 	 */
 	loadPrecomputed : function (dictionary, jsonData, sstData, settings) {
 
-		var SSTable = require('sstab/src/sstable');
+		var SSTable = require('sstab/dist/sstable');
 
 
 		settings = settings || {};

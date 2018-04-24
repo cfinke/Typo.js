@@ -1,11 +1,17 @@
 {
   "name": "typo-js",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "A Hunspell-style spellchecker.",
   "main": "typo.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/cfinke/Typo.js.git"
+  },
+  "bin": {
+    "typo-precompute": "./bin/precompute-dic.js"
+  },
+  "scripts": {
+    "test": "mocha"
   },
   "keywords": [
     "spellcheck",
@@ -23,5 +29,11 @@
   "tonicExample": "var Typo = require('typo-js'); var dictionary = new Typo('en_US'); dictionary.check('mispelled');",
   "browser": {
     "fs": false
+  },
+  "dependencies": {
+    "sstab": "^1.0.2"
+  },
+  "devDependencies": {
+    "mocha": "^5.0.5"
   }
 }

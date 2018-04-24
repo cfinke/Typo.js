@@ -1,23 +1,51 @@
-function run() {
-	var utilityDict = new Typo();
-	var affData = utilityDict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.aff"));
-	var wordData = utilityDict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.dic"));
-	
-	var hashDict = new Typo("en_US", affData, wordData);
-	
-	testDictionary(hashDict);
+var assert = require('assert');
+var Typo = require('../src/typo');
 
-	var dict = new Typo("en_US", null, null, { dictionaryPath : "../src/dictionaries", asyncLoad : true, loadedCallback : function () {
-		testDictionary(dict);
-	}});
-}
+var equal = assert.equal;
+var deepEqual = assert.deepEqual;
 
-function testDictionary(dict) {
-	test("Dictionary object attributes are properly set", function () {
+// NOTE: This is mostly duplicated from tests/english.js for testing the precomputed functions only available in node-like environments
+describe('english', function() {
+
+	testGenerator(function(dict, next) {
+		dict.load('en_US');
+		next();
+	})
+
+	context('precomputed (sync)', function() {
+		testGenerator(function(dict, done) {	
+			dict.loadPrecomputed('en_US')
+			done();
+		})
+	});
+
+	context('precomputed (async)', function() {
+		testGenerator(function(dict, done) {	
+			dict.loadPrecomputed('en_US', null, null, {
+				asyncLoad: true,
+				loadedCallback: () => done()
+			})
+		})
+	});
+
+
+});
+
+function testGenerator(b) {
+
+	var dict;
+
+	before(function(done) {
+		dict = new Typo();
+		b(dict, done);
+	});
+
+
+	it("Dictionary object attributes are properly set", function () {
 		equal(dict.dictionary, "en_US");
 	});
 	
-	test("Suggestions", function () {
+	it("Suggestions", function () {
 		deepEqual(dict.suggest("speling", 3), [ "spelling", "spieling", "spewing" ]);
 
 		// Repeated calls function properly.
@@ -39,7 +67,7 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("length"), [ ], "Correctly spelled words receive no suggestions.");
 	});
 	
-	test("Correct checking of words with no affixes", function () {
+	it("Correct checking of words with no affixes", function () {
 		equal(dict.check("I"), true);
 		equal(dict.check("is"), true);
 		equal(dict.check("makes"), true);
@@ -51,21 +79,21 @@ function testDictionary(dict) {
 		equal(dict.check("palpable"), true);
 	});
 	
-	test("Correct checking of root words with single affixes (affixes not used)", function () {
+	it("Correct checking of root words with single affixes (affixes not used)", function () {
 		equal(dict.check("paling"), true);
 		equal(dict.check("arrangeable"), true);
 		equal(dict.check("arrant"), true);
 		equal(dict.check("swabby"), true);
 	});
 
-	test("Correct checking of root words with single affixes (affixes used)", function () {
+	it("Correct checking of root words with single affixes (affixes used)", function () {
 		equal(dict.check("palmer's"), true);
 		equal(dict.check("uncritically"), true);
 		equal(dict.check("hypersensitiveness"), true);
 		equal(dict.check("illusive"), true);
 	});
 	
-	test("Capitalization is respected.", function () {
+	it("Capitalization is respected.", function () {
 		equal(dict.check("A"), true);
 		equal(dict.check("a"), true);
 		equal(dict.check("AA"), true);
@@ -93,7 +121,7 @@ function testDictionary(dict) {
 		equal(dict.check("alex"), false);
 	});
 	
-	test("Words not in the dictionary in any form are marked as misspelled.", function () {
+	it("Words not in the dictionary in any form are marked as misspelled.", function () {
 		equal(dict.check("aaraara"), false);
 		equal(dict.check("aaraara"), false);
 		equal(dict.check("aaraara"), false);
@@ -101,7 +129,7 @@ function testDictionary(dict) {
 		equal(dict.check("aaraara"), false);
 	});
 	
-	test("Leading and trailing whitespace is ignored.", function () {
+	it("Leading and trailing whitespace is ignored.", function () {
 		equal(dict.check("concept "), true);
 		equal(dict.check(" concept"), true);
 		equal(dict.check("  concept"), true);
@@ -109,13 +137,13 @@ function testDictionary(dict) {
 		equal(dict.check("  concept  "), true);
 	});
 	
-	test("ONLYINCOMPOUND flag is respected", function () {
+	it("ONLYINCOMPOUND flag is respected", function () {
 		equal(dict.check("1th"), false);
 		equal(dict.check("2th"), false);
 		equal(dict.check("3th"), false);
 	});
 	
-	test("Compound words", function () {
+	it("Compound words", function () {
 		equal(dict.check("1st"), true);
 		equal(dict.check("2nd"), true);
 		equal(dict.check("3rd"), true);
@@ -136,13 +164,13 @@ function testDictionary(dict) {
 		equal(dict.check("100st"), false);
 	});
 	
-	test("Possessives are properly checked.", function () {
+	it("Possessives are properly checked.", function () {
 		equal(dict.check("concept's"), true);
 		// acceptability's is in the dictionary including the 's
 		equal(dict.check("acceptability's's"), false);
 	});
 	
-	test("Replacement rules are implemented", function () {
+	it("Replacement rules are implemented", function () {
 		deepEqual(dict.suggest("wagh"), [ "weigh" ]);
 		deepEqual(dict.suggest("ceit"), [ "cat" ]);
 		deepEqual(dict.suggest("seau"), [ "so" ]);
@@ -150,7 +178,7 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("soker"), [ "choker" ]);
 	});
 	
-	test("Contractions", function () {
+	it("Contractions", function () {
 		equal(dict.check("aren't"), true);
 		equal(dict.check("I'm"), true);
 		equal(dict.check("we're"), true);
@@ -159,12 +187,12 @@ function testDictionary(dict) {
 		equal(dict.check("he're"), false);
 	});
 	
-	test("Capitalizations are handled properly.", function () {
+	it("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
 		deepEqual(dict.suggest("CEIT"), [ "CERT", "CHIT", "CIT", "CENT", "CUT" ]);
 	});
 
-	test("NOSUGGEST is respected", function () {
+	it("NOSUGGEST is respected", function () {
 		// 'fart' is marked NOSUGGEST, and I've confirmed that it would be in the suggestions if we don't respect that flag.
 		equal(dict.suggest("faxt").indexOf('fart'), -1);
 		
@@ -172,5 +200,3 @@ function testDictionary(dict) {
 		equal(dict.suggest("faxt", 10).length, 10);
 	});
 }
-
-addEventListener( "load", run, false );

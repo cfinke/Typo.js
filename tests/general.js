@@ -20,12 +20,12 @@ function run() {
 	});
 	
 	test("_readFile can load a file synchronously", function() {
-		var data = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+		var data = empty_dict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.dic"));
 		ok(data && data.length > 0);
 	});
 	
 	asyncTest("_readFile can load a file asynchronously", function(assert) {
-		empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"), null, true).then(function(data) {
+		empty_dict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.dic"), null, true).then(function(data) {
 			assert.ok(data && data.length > 0);
 			QUnit.start();
 		}, function(err) {
@@ -41,8 +41,8 @@ function run() {
 	}
 	
 	test("Dictionary instantiated with preloaded data is setup correctly", function() {
-		var affData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.aff"));
-		var wordData = empty_dict._readFile(chrome.extension.getURL("../typo/dictionaries/en_US/en_US.dic"));
+		var affData = empty_dict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.aff"));
+		var wordData = empty_dict._readFile(chrome.extension.getURL("../src/dictionaries/en_US/en_US.dic"));
 		var dict = new Typo("en_US", affData, wordData);
 		checkLoadedDict(dict);
 	});

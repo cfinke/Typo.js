@@ -262,15 +262,7 @@ Typo.prototype = {
 			
 			try {
 				if (fs.existsSync(path)) {
-					var stats = fs.statSync(path);
-					
-					var fileDescriptor = fs.openSync(path, 'r');
-					
-					var buffer = new Buffer(stats.size);
-					
-					fs.readSync(fileDescriptor, buffer, 0, buffer.length, null);
-					
-					return buffer.toString(charset, 0, buffer.length);
+					return fs.readFileSync(path, charset);
 				}
 				else {
 					console.log("Path " + path + " does not exist.");

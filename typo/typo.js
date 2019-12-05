@@ -290,7 +290,7 @@ Typo.prototype = {
 		// Remove comment lines
 		data = this._removeAffixComments(data);
 		
-		var lines = data.split("\n");
+		var lines = data.split(/\r?\n/);
 		
 		for (i = 0, _len = lines.length; i < _len; i++) {
 			line = lines[i];
@@ -422,7 +422,7 @@ Typo.prototype = {
 	_parseDIC : function (data) {
 		data = this._removeDicComments(data);
 		
-		var lines = data.split("\n");
+		var lines = data.split(/\r?\n/);
 		var dictionaryTable = {};
 		
 		function addWord(word, rules) {

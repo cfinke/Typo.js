@@ -911,6 +911,7 @@ Typo.prototype = {
 					sorted_corrections.push([ i, weighted_corrections[i] ]);
 				}
 			}
+
 			function sorter(a, b) {
 				var a_val = a[1];
 				var b_val = b[1];

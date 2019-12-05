@@ -911,17 +911,16 @@ Typo.prototype = {
 					sorted_corrections.push([ i, weighted_corrections[i] ]);
 				}
 			}
-			
 			function sorter(a, b) {
-				var aVal = a[1];
-				var bVal = b[1];
-				if (aVal < bVal) {
+				var a_val = a[1];
+				var b_val = b[1];
+				if (a_val < b_val) {
 					return -1;
-				} else if (aVal === bVal) {
-					// @todo If a and b are equally weighted, add our own weight based on something like the key locations on this language's default keyboard.
-					return 0
+				} else if (a_val > b_val) {
+					return 1;
 				}
-				return 1;
+				// @todo If a and b are equally weighted, add our own weight based on something like the key locations on this language's default keyboard.
+				return b[0].localeCompare(a[0]);
 			}
 			
 			sorted_corrections.sort(sorter).reverse();

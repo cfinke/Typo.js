@@ -913,12 +913,14 @@ Typo.prototype = {
 			}
 			
 			function sorter(a, b) {
-				if (a[1] < b[1]) {
+				var aVal = a[1];
+				var bVal = b[1];
+				if (aVal < bVal) {
 					return -1;
+				} else if (aVal === bVal) {
+					// @todo If a and b are equally weighted, add our own weight based on something like the key locations on this language's default keyboard.
+					return 0
 				}
-				
-				// @todo If a and b are equally weighted, add our own weight based on something like the key locations on this language's default keyboard.
-
 				return 1;
 			}
 			

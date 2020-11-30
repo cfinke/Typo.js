@@ -640,7 +640,8 @@ Typo.prototype = {
 			}
 		}
 		
-		var lowercaseWord = trimmedWord.toLowerCase();
+		//var lowercaseWord = trimmedWord.toLowerCase();
+		var lowercaseWord = trimmedWord[0].toLowerCase() + trimmedword.substring(1); 
 		
 		if (lowercaseWord !== trimmedWord) {
 			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {

@@ -22,13 +22,13 @@ function testDictionary(dict) {
 
 		// Repeated calls function properly.
 		deepEqual(dict.suggest("speling", 1), [ "spelling" ]);
-		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
+		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "peeling", "selling" ]);
 		deepEqual(dict.suggest("speling", 2), [ "spelling", "spieling" ]);
-		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "selling", "peeling" ]);
+		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "peeling", "selling" ]);
 
 		// Requesting more suggestions than will be returned doesn't break anything.
-		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "starting", "sprang", "sporting", "spurting", "smarting", "sparking", "sparling", "sparring", "parting", "spatting" ]);
-		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "starting", "sprang", "sporting", "spurting", "smarting", "sparking", "sparling", "sparring", "parting", "spatting" ]);
+		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "spatting", "sporting", "sprang", "spurting", "starting" ]);
+		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "spatting", "sporting", "sprang", "spurting", "starting" ]);
 		deepEqual(dict.suggest("spartang", 1), [ "spartan" ]);
 
 		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");

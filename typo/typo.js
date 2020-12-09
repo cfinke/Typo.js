@@ -636,20 +636,27 @@ Typo.prototype = {
 			}
 			
 			if (this.checkExact(capitalizedWord)) {
+				// The all-caps word is a capitalized word spelled correctly.
+				return true;
+			}
+
+			if (this.checkExact(trimmedWord.toLowerCase())) {
+				// The all-caps is a lowercase word spelled correctly.
 				return true;
 			}
 		}
 		
-		var lowercaseWord = trimmedWord.toLowerCase();
+		var uncapitalizedWord = trimmedWord[0].toLowerCase() + trimmedWord.substring(1);
 		
-		if (lowercaseWord !== trimmedWord) {
-			if (this.hasFlag(lowercaseWord, "KEEPCASE")) {
+		if (uncapitalizedWord !== trimmedWord) {
+			if (this.hasFlag(uncapitalizedWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
 				return false;
 			}
 			
-			// Check for a lowercase form
-			if (this.checkExact(lowercaseWord)) {
+			// Check for an uncapitalized form
+			if (this.checkExact(uncapitalizedWord)) {
+				// The word is spelled correctly but with the first letter capitalized.
 				return true;
 			}
 		}
@@ -805,6 +812,8 @@ Typo.prototype = {
 			var rv = {};
 			
 			var i, j, _iilen, _len, _jlen, _edit;
+
+			var alphabetLength = self.alphabet.length;
 			
 			if (typeof words == 'string') {
 				var word = words;
@@ -816,6 +825,7 @@ Typo.prototype = {
 				for (i = 0, _len = word.length + 1; i < _len; i++) {
 					var s = [ word.substring(0, i), word.substring(i) ];
 				
+					// Remove a letter.
 					if (s[1]) {
 						_edit = s[0] + s[1].substring(1);
 
@@ -829,6 +839,7 @@ Typo.prototype = {
 						}
 					}
 					
+					// Transpose letters
 					// Eliminate transpositions of identical letters
 					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
 						_edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
@@ -844,10 +855,21 @@ Typo.prototype = {
 					}
 
 					if (s[1]) {
-						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
+						// Replace a letter with another letter.
+
+						var lettercase = (s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
+
+						for (j = 0; j < alphabetLength; j++) {
+							var replacementLetter = self.alphabet[j];
+
+							// Set the case of the replacement letter to the same as the letter being replaced.
+							if ( 'uppercase' === lettercase ) {
+								replacementLetter = replacementLetter.toUpperCase();
+							}
+
 							// Eliminate replacement of a letter by itself
-							if (self.alphabet[j] != s[1].substring(0,1)){
-								_edit = s[0] + self.alphabet[j] + s[1].substring(1);
+							if (replacementLetter != s[1].substring(0,1)){
+								_edit = s[0] + replacementLetter + s[1].substring(1);
 
 								if (!known_only || self.check(_edit)) {
 									if (!(_edit in rv)) {
@@ -862,8 +884,18 @@ Typo.prototype = {
 					}
 
 					if (s[1]) {
-						for (j = 0, _jlen = self.alphabet.length; j < _jlen; j++) {
-							_edit = s[0] + self.alphabet[j] + s[1];
+						// Add a letter between each letter.
+						for (j = 0; j < alphabetLength; j++) {
+							// If the letters on each side are capitalized, capitalize the replacement.
+							var lettercase = (s[0].substring(-1).toUpperCase() === s[0].substring(-1) && s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
+
+							var replacementLetter = self.alphabet[j];
+
+							if ( 'uppercase' === lettercase ) {
+								replacementLetter = replacementLetter.toUpperCase();
+							}
+
+							_edit = s[0] + replacementLetter + s[1];
 
 							if (!known_only || self.check(_edit)) {
 								if (!(_edit in rv)) {

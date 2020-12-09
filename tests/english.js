@@ -70,7 +70,7 @@ function testDictionary(dict) {
 		equal(dict.check("a"), true);
 		equal(dict.check("AA"), true);
 		equal(dict.check("ABANDONER"), true);
-		equal(dict.check("abandonER"), true);
+		equal(dict.check("abandonER"), false);
 		equal(dict.check("Abandoner"), true);
 		equal(dict.check("Abbe"), true);
 		equal(dict.check("Abbott's"), true);
@@ -161,7 +161,7 @@ function testDictionary(dict) {
 	
 	test("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
-		deepEqual(dict.suggest("CEIT"), [ "CERT", "CHIT", "CIT", "CENT", "CUT" ]);
+		deepEqual(dict.suggest("CEIT"), [ "CIT", "CELT", "CENT", "CERT", "CHIT" ]);
 	});
 
 	test("NOSUGGEST is respected", function () {

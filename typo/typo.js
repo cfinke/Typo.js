@@ -287,13 +287,16 @@ Typo.prototype = {
 		var line, subline, numEntries, lineParts;
 		var i, j, _len, _jlen;
 		
-		// Remove comment lines
-		data = this._removeAffixComments(data);
-		
 		var lines = data.split(/\r?\n/);
 		
 		for (i = 0, _len = lines.length; i < _len; i++) {
-			line = lines[i];
+			// Remove comment lines
+			line = this._removeAffixComments(lines[i]);
+			line = line.trim();
+			
+			if ( ! line ) {
+				continue;
+			}
 			
 			var definitionParts = line.split(/\s+/);
 			
@@ -385,30 +388,21 @@ Typo.prototype = {
 	},
 	
 	/**
-	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
+	 * Removes comments.
 	 *
-	 * @param {String} data The data from an affix file.
-	 * @return {String} The cleaned-up data.
+	 * @param {String} data A line from an affix file.
+	 * @return {String} The cleaned-up line.
 	 */
 	
-	_removeAffixComments : function (data) {
-		// Remove comments
+	_removeAffixComments : function (line) {
 		// This used to remove any string starting with '#' up to the end of the line,
 		// but some COMPOUNDRULE definitions include '#' as part of the rule.
-		// I haven't seen any affix files that use comments on the same line as real data,
-		// so I don't think this will break anything.
-		data = data.replace(/^\s*#.*$/mg, "");
+		// So, only remove lines that begin with a comment, optionally preceded by whitespace.
+		if ( line.match( /^\s*#/, "" ) ) {
+			return '';
+		}
 		
-		// Trim each line
-		data = data.replace(/^\s\s*/m, '').replace(/\s\s*$/m, '');
-		
-		// Remove blank lines.
-		data = data.replace(/\n{2,}/g, "\n");
-		
-		// Trim the entire string
-		data = data.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
-		
-		return data;
+		return line;
 	},
 	
 	/**

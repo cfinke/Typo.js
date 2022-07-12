@@ -540,6 +540,7 @@ Typo.prototype = {
 		else if (this.flags.FLAG === "num") {
 			return textCodes.split(",");
 		}
+		return textCodes.split("");
 	},
 	
 	/**

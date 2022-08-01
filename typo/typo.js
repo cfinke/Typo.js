@@ -526,9 +526,11 @@ Typo.prototype = {
 			return [];
 		}
 		else if (!("FLAG" in this.flags)) {
+			// The flag symbols are single characters
 			return textCodes.split("");
 		}
 		else if (this.flags.FLAG === "long") {
+			// The flag symbols are two characters long.
 			var flags = [];
 			
 			for (var i = 0, _len = textCodes.length; i < _len; i += 2) {
@@ -538,7 +540,18 @@ Typo.prototype = {
 			return flags;
 		}
 		else if (this.flags.FLAG === "num") {
+			// The flag symbols are a CSV list of numbers.
 			return textCodes.split(",");
+		}
+		else if (this.flags.FLAG === "UTF-8") {
+			// The flags are single UTF-8 characters.
+			// @see https://github.com/cfinke/Typo.js/issues/57
+			return Array.from(textCodes);
+		}
+		else {
+			// It's possible that this fallback case will not work for all FLAG values,
+			// but I think it's more likely to work than not returning anything at all.
+			return textCodes.split("");
 		}
 	},
 	

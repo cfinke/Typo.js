@@ -27,8 +27,8 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "peeling", "selling" ]);
 
 		// Requesting more suggestions than will be returned doesn't break anything.
-		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "spatting", "sporting", "sprang", "spurting", "starting" ]);
-		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "spatting", "sporting", "sprang", "spurting", "starting" ]);
+		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "Spartan", "Spartans", "spatting", "sporting", "sprang", "spurting", "starting" ]);
+		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "Spartan", "Spartans", "spatting", "sporting", "sprang", "spurting", "starting" ]);
 		deepEqual(dict.suggest("spartang", 1), [ "spartan" ]);
 
 		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
@@ -161,7 +161,7 @@ function testDictionary(dict) {
 	
 	test("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
-		deepEqual(dict.suggest("CEIT"), [ "CIT", "CELT", "CENT", "CERT", "CHIT" ]);
+		deepEqual(dict.suggest("CEIT"), [ "CELT", "CENT", "CERT", "CHIT", "REIT" ] );
 	});
 
 	test("NOSUGGEST is respected", function () {

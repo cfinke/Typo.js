@@ -784,30 +784,41 @@ Typo.prototype = {
 			}
 		}
 		
-		var self = this;
-		self.alphabet = "abcdefghijklmnopqrstuvwxyz";
-		
-		/*
-		if (!self.alphabet) {
-			// Use the alphabet as implicitly defined by the words in the dictionary.
-			var alphaHash = {};
+		if (!this.alphabet) {
+			// Use the English alphabet as the default. Problematic, but backwards-compatible.
+			this.alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 			
-			for (var i in self.dictionaryTable) {
-				for (var j = 0, _len = i.length; j < _len; j++) {
-					alphaHash[i[j]] = true;
-				}
+			// Any characters defined in the affix file as substitutions can go in the alphabet too.
+			// Note that dictionaries do not include the entire alphabet in the TRY flag when it's there.
+			// For example, Q is not in the default English TRY list; that's why having the default
+			// alphabet above is useful.
+			if ( 'TRY' in this.flags ) {
+				this.alphabet += this.flags['TRY'];
 			}
 			
-			for (var i in alphaHash) {
-				self.alphabet += i;
+			// Plus any additional characters specifically defined as being allowed in words.
+			if ( 'WORDCHARS' in this.flags ) {
+				this.alphabet += this.flags['WORDCHARS'];
 			}
 			
-			var alphaArray = self.alphabet.split("");
+			// Remove any duplicates.
+			var alphaArray = this.alphabet.split("");
 			alphaArray.sort();
-			self.alphabet = alphaArray.join("");
+
+			var alphaHash = {};
+			for ( var i = 0; i < alphaArray.length; i++ ) {
+				alphaHash[ alphaArray[i] ] = true;
+			}
+			
+			this.alphabet = '';
+			
+			for ( var i in alphaHash ) {
+				this.alphabet += i;
+			}
 		}
-		*/
 		
+		var self = this;
+
 		/**
 		 * Returns a hash keyed by all of the strings that can be made by making a single edit to the word (or words in) `words`
 		 * The value of each entry is the number of unique ways that the resulting word can be made.

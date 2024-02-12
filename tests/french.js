@@ -56,6 +56,11 @@ function testDictionary(dict) {
 		equal(dict.check("espérance"), true);
 		equal(dict.check("esperluette"), true);
 	});
+	
+	test("suggest", function () {
+		// https://github.com/cfinke/Typo.js/issues/82
+		equal(5, dict.suggest("ok").length);
+	});
 }
 
 addEventListener( "load", run, false );

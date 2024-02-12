@@ -624,6 +624,10 @@ Typo.prototype = {
 			throw "Dictionary not loaded.";
 		}
 		
+		if (!aWord) {
+			return false;
+		}
+		
 		// Remove leading and trailing whitespace
 		var trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 		

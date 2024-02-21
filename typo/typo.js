@@ -217,7 +217,7 @@ Typo.prototype = {
 	 * Read the contents of a file.
 	 * 
 	 * @param {String} path The path (relative) to the file.
-	 * @param {String} [charset="ISO8859-1"] The expected charset of the file
+	 * @param {String} [charset="utf8"] The expected charset of the file
 	 * @param {Boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
 	 *        files are read synchronously.
 	 * @returns {String} The file data if async is false, otherwise a promise object. If running node.js, the data is

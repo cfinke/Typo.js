@@ -282,6 +282,13 @@ Typo.prototype = {
 	 */
 
 	_parseAFF : function (data) {
+		interface AFFEntry {
+			add: string;
+			continuationClasses?: string[];
+			match?: RegExp;
+			remove?: RegExp|string;
+		}
+
 		var rules = {};
 
 		var line, subline, numEntries, lineParts;
@@ -324,8 +331,9 @@ Typo.prototype = {
 
 					var regexToMatch = lineParts[4];
 
-					var entry = {};
-					entry.add = charactersToAdd;
+					var entry: AFFEntry = {
+						add : charactersToAdd
+					};
 
 					if (continuationClasses.length > 0) entry.continuationClasses = continuationClasses;
 

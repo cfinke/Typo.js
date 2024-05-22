@@ -261,8 +261,9 @@ var Typo;
                             charactersToAdd = "";
                         var continuationClasses = this.parseRuleCodes(additionParts[1]);
                         var regexToMatch = lineParts[4];
-                        var entry = {};
-                        entry.add = charactersToAdd;
+                        var entry = {
+                            add: charactersToAdd
+                        };
                         if (continuationClasses.length > 0)
                             entry.continuationClasses = continuationClasses;
                         if (regexToMatch !== ".") {

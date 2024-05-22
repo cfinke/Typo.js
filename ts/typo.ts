@@ -138,7 +138,7 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 		}
 	}
 
-	function setAffData(data) {
+	function setAffData(data: string) {
 		affData = data;
 
 		if (wordsData) {
@@ -146,7 +146,7 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 		}
 	}
 
-	function setWordsData(data) {
+	function setWordsData(data: string) {
 		wordsData = data;
 
 		if (affData) {

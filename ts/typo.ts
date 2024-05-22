@@ -125,7 +125,7 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 		}
 	}
 
-	function readDataFile(url, setFunc) {
+	function readDataFile(url: string, setFunc: Function) {
 		const response = self._readFile(url, null, settings.asyncLoad);
 
 		if (settings.asyncLoad) {

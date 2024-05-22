@@ -332,7 +332,7 @@ var Typo;
          * Parses the words out from the .dic file.
          *
          * @param {String} data The data from the dictionary file.
-         * @returns object The lookup table containing all of the words and
+         * @returns HashMap The lookup table containing all of the words and
          *                 word forms from the dictionary.
          */
         _parseDIC: function (data) {
@@ -668,7 +668,7 @@ var Typo;
              * Returns a hash keyed by all of the strings that can be made by making a single edit to the word (or words in) `words`
              * The value of each entry is the number of unique ways that the resulting word can be made.
              *
-             * @arg Edits words A hash keyed by words (all with the value `true` to make lookups very quick).
+             * @arg HashMap words A hash keyed by words (all with the value `true` to make lookups very quick).
              * @arg boolean known_only Whether this function should ignore strings that are not in the dictionary.
              */
             function edits1(words, known_only) {

@@ -41,25 +41,25 @@ interface HashMap {
 /**
  * Typo constructor.
  *
- * @param {String} [dictionary] The locale code of the dictionary being used. e.g.,
+ * @param {string} [dictionary] The locale code of the dictionary being used. e.g.,
  *                              "en_US". This is only used to auto-load dictionaries.
- * @param {String} [affData]    The data from the dictionary's .aff file. If omitted
+ * @param {string} [affData]    The data from the dictionary's .aff file. If omitted
  *                              and Typo.js is being used in a Chrome extension, the .aff
  *                              file will be loaded automatically from
  *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
  *                              In other environments, it will be loaded from
  *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
- * @param {String} [wordsData]  The data from the dictionary's .dic file. If omitted
+ * @param {string} [wordsData]  The data from the dictionary's .dic file. If omitted
  *                              and Typo.js is being used in a Chrome extension, the .dic
  *                              file will be loaded automatically from
  *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
  *                              In other environments, it will be loaded from
  *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
  * @param {Object} [settings]   Constructor settings. Available properties are:
- *                              {String} [dictionaryPath]: path to load dictionary from in non-chrome
+ *                              {string} [dictionaryPath]: path to load dictionary from in non-chrome
  *                              environment.
  *                              {Object} [flags]: flag information.
- *                              {Boolean} [asyncLoad]: If true, affData and wordsData will be loaded
+ *                              {boolean} [asyncLoad]: If true, affData and wordsData will be loaded
  *                              asynchronously.
  *                              {Function} [loadedCallback]: Called when both affData and wordsData
  *                              have been loaded. Only used if asyncLoad is set to true. The parameter
@@ -224,7 +224,7 @@ Typo.prototype = {
 	/**
 	 * Loads a Typo instance from a hash of all of the Typo properties.
 	 *
-	 * @param object obj A hash of Typo properties, probably gotten from a JSON.parse(JSON.stringify(typo_instance)).
+	 * @param {object} obj A hash of Typo properties, probably gotten from a JSON.parse(JSON.stringify(typo_instance)).
 	 */
 
 	load : function (obj) {
@@ -240,11 +240,11 @@ Typo.prototype = {
 	/**
 	 * Read the contents of a file.
 	 *
-	 * @param {String} path The path (relative) to the file.
-	 * @param {String} [charset="ISO8859-1"] The expected charset of the file
-	 * @param {Boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
+	 * @param {string} path The path (relative) to the file.
+	 * @param {string} [charset="ISO8859-1"] The expected charset of the file
+	 * @param {boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
 	 *        files are read synchronously.
-	 * @returns {String} The file data if async is false, otherwise a promise object. If running node.js, the data is
+	 * @returns {string} The file data if async is false, otherwise a promise object. If running node.js, the data is
 	 *          always returned.
 	 */
 
@@ -301,7 +301,7 @@ Typo.prototype = {
 	/**
 	 * Parse the rules out from a .aff file.
 	 *
-	 * @param {String} data The contents of the affix file.
+	 * @param {string} data The contents of the affix file.
 	 * @returns object The rules from the file.
 	 */
 
@@ -422,8 +422,8 @@ Typo.prototype = {
 	/**
 	 * Removes comments.
 	 *
-	 * @param {String} data A line from an affix file.
-	 * @return {String} The cleaned-up line.
+	 * @param {string} data A line from an affix file.
+	 * @return {string} The cleaned-up line.
 	 */
 
 	_removeAffixComments : function (line: string): string {
@@ -440,7 +440,7 @@ Typo.prototype = {
 	/**
 	 * Parses the words out from the .dic file.
 	 *
-	 * @param {String} data The data from the dictionary file.
+	 * @param {string} data The data from the dictionary file.
 	 * @returns HashMap The lookup table containing all of the words and
 	 *                 word forms from the dictionary.
 	 */
@@ -539,8 +539,8 @@ Typo.prototype = {
 	/**
 	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
 	 *
-	 * @param {String} data The data from a .dic file.
-	 * @return {String} The cleaned-up data.
+	 * @param {string} data The data from a .dic file.
+	 * @return {string} The cleaned-up data.
 	 */
 
 	_removeDicComments : function (data) {
@@ -590,9 +590,9 @@ Typo.prototype = {
 	/**
 	 * Applies an affix rule to a word.
 	 *
-	 * @param {String} word The base word.
+	 * @param {string} word The base word.
 	 * @param {Object} rule The affix rule.
-	 * @returns {String[]} The new words generated by the rule.
+	 * @returns {string[]} The new words generated by the rule.
 	 */
 
 	_applyRule : function (word, rule) {
@@ -647,8 +647,8 @@ Typo.prototype = {
 	 *
 	 * @see http://blog.stevenlevithan.com/archives/faster-trim-javascript re:trimming function
 	 *
-	 * @param {String} aWord The word to check.
-	 * @returns {Boolean}
+	 * @param {string} aWord The word to check.
+	 * @returns {boolean}
 	 */
 
 	check : function (aWord) {
@@ -710,8 +710,8 @@ Typo.prototype = {
 	/**
 	 * Checks whether a word exists in the current dictionary.
 	 *
-	 * @param {String} word The word to check.
-	 * @returns {Boolean}
+	 * @param {string} word The word to check.
+	 * @returns {boolean}
 	 */
 
 	checkExact : function (word) {
@@ -752,9 +752,9 @@ Typo.prototype = {
 	/**
 	 * Looks up whether a given word is flagged with a given flag.
 	 *
-	 * @param {String} word The word in question.
-	 * @param {String} flag The flag in question.
-	 * @return {Boolean}
+	 * @param {string} word The word in question.
+	 * @param {string} flag The flag in question.
+	 * @return {boolean}
 	 */
 
 	hasFlag : function (word, flag, wordFlags) {
@@ -781,9 +781,9 @@ Typo.prototype = {
 	 * @see http://www.norvig.com/spell-correct.html for the basis of this suggestor.
 	 * This suggestor is primitive, but it works.
 	 *
-	 * @param {String} word The misspelling.
-	 * @param {Number} [limit=5] The maximum number of suggestions to return.
-	 * @returns {String[]} The array of suggestions.
+	 * @param {string} word The misspelling.
+	 * @param {number} [limit=5] The maximum number of suggestions to return.
+	 * @returns {string[]} The array of suggestions.
 	 */
 
 	alphabet : "",

@@ -422,11 +422,11 @@ Typo.prototype = {
 	 * @return {String} The cleaned-up line.
 	 */
 
-	_removeAffixComments : function (line) {
+	_removeAffixComments : function (line: string): string {
 		// This used to remove any string starting with '#' up to the end of the line,
 		// but some COMPOUNDRULE definitions include '#' as part of the rule.
 		// So, only remove lines that begin with a comment, optionally preceded by whitespace.
-		if ( line.match( /^\s*#/, "" ) ) {
+		if ( line.match( /^\s*#/ ) ) {
 			return '';
 		}
 

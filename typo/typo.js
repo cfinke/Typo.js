@@ -323,7 +323,7 @@ var Typo;
             // This used to remove any string starting with '#' up to the end of the line,
             // but some COMPOUNDRULE definitions include '#' as part of the rule.
             // So, only remove lines that begin with a comment, optionally preceded by whitespace.
-            if (line.match(/^\s*#/, "")) {
+            if (line.match(/^\s*#/)) {
                 return '';
             }
             return line;

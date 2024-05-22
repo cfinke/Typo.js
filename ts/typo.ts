@@ -63,7 +63,7 @@ Typo = function (dictionary, affData, wordsData, settings) {
 
 	this.loaded = false;
 
-	let self = this;
+	const self = this;
 
 	let path;
 
@@ -106,7 +106,7 @@ Typo = function (dictionary, affData, wordsData, settings) {
 	}
 
 	function readDataFile(url, setFunc) {
-		let response = self._readFile(url, null, settings.asyncLoad);
+		const response = self._readFile(url, null, settings.asyncLoad);
 
 		if (settings.asyncLoad) {
 			response.then(function(data) {
@@ -141,7 +141,7 @@ Typo = function (dictionary, affData, wordsData, settings) {
 		self.compoundRuleCodes = {};
 
 		for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
-			let rule = self.compoundRules[i];
+			const rule = self.compoundRules[i];
 
 			for (j = 0, _jlen = rule.length; j < _jlen; j++) {
 				self.compoundRuleCodes[rule[j]] = [];
@@ -168,12 +168,12 @@ Typo = function (dictionary, affData, wordsData, settings) {
 		// I have a feeling (but no confirmation yet) that this method of
 		// testing for compound words is probably slow.
 		for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
-			let ruleText = self.compoundRules[i];
+			const ruleText = self.compoundRules[i];
 
 			let expressionText = "";
 
 			for (j = 0, _jlen = ruleText.length; j < _jlen; j++) {
-				let character = ruleText[j];
+				const character = ruleText[j];
 
 				if (character in self.compoundRuleCodes) {
 					expressionText += "(" + self.compoundRuleCodes[character].join("|") + ")";
@@ -229,7 +229,7 @@ Typo.prototype = {
 
 		if (typeof XMLHttpRequest !== 'undefined') {
 			let promise;
-			let req = new XMLHttpRequest();
+			const req = new XMLHttpRequest();
 			req.open("GET", path, async);
 
 			if (async) {
@@ -258,7 +258,7 @@ Typo.prototype = {
 		}
 		else if (typeof require !== 'undefined') {
 			// Node.js
-			let fs = require("fs");
+			const fs = require("fs");
 
 			try {
 				if (fs.existsSync(path)) {
@@ -294,7 +294,7 @@ Typo.prototype = {
 		let line, subline, numEntries, lineParts;
 		let i, j, _len, _jlen;
 
-		let lines = data.split(/\r?\n/);
+		const lines = data.split(/\r?\n/);
 
 		for (i = 0, _len = lines.length; i < _len; i++) {
 			// Remove comment lines
@@ -305,13 +305,13 @@ Typo.prototype = {
 				continue;
 			}
 
-			let definitionParts = line.split(/\s+/);
+			const definitionParts = line.split(/\s+/);
 
-			let ruleType = definitionParts[0];
+			const ruleType = definitionParts[0];
 
 			if (ruleType == "PFX" || ruleType == "SFX") {
-				let ruleCode = definitionParts[1];
-				let combineable = definitionParts[2];
+				const ruleCode = definitionParts[1];
+				const combineable = definitionParts[2];
 				numEntries = parseInt(definitionParts[3], 10);
 
 				let entries = [];
@@ -320,16 +320,16 @@ Typo.prototype = {
 					subline = lines[j];
 
 					lineParts = subline.split(/\s+/);
-					let charactersToRemove = lineParts[2];
+					const charactersToRemove = lineParts[2];
 
-					let additionParts = lineParts[3].split("/");
+					const additionParts = lineParts[3].split("/");
 
 					let charactersToAdd = additionParts[0];
 					if (charactersToAdd === "0") charactersToAdd = "";
 
-					let continuationClasses = this.parseRuleCodes(additionParts[1]);
+					const continuationClasses = this.parseRuleCodes(additionParts[1]);
 
-					let regexToMatch = lineParts[4];
+					const regexToMatch = lineParts[4];
 
 					let entry: AFFEntry = {
 						add : charactersToAdd
@@ -424,7 +424,7 @@ Typo.prototype = {
 	_parseDIC : function (data) {
 		data = this._removeDicComments(data);
 
-		let lines = data.split(/\r?\n/);
+		const lines = data.split(/\r?\n/);
 		let dictionaryTable = {};
 
 		function addWord(word, rules) {
@@ -444,20 +444,20 @@ Typo.prototype = {
 
 		// The first line is the number of words in the dictionary.
 		for (let i = 1, _len = lines.length; i < _len; i++) {
-			let line = lines[i];
+			const line = lines[i];
 
 			if (!line) {
 				// Ignore empty lines.
 				continue;
 			}
 
-			let parts = line.split("/", 2);
+			const parts = line.split("/", 2);
 
-			let word = parts[0];
+			const word = parts[0];
 
 			// Now for each affix rule, generate that form of the word.
 			if (parts.length > 1) {
-				let ruleCodesArray = this.parseRuleCodes(parts[1]);
+				const ruleCodesArray = this.parseRuleCodes(parts[1]);
 
 				// Save the ruleCodes for compound word situations.
 				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
@@ -465,30 +465,30 @@ Typo.prototype = {
 				}
 
 				for (let j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
-					let code = ruleCodesArray[j];
+					const code = ruleCodesArray[j];
 
-					let rule = this.rules[code];
+					const rule = this.rules[code];
 
 					if (rule) {
-						let newWords = this._applyRule(word, rule);
+						const newWords = this._applyRule(word, rule);
 
 						for (let ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
-							let newWord = newWords[ii];
+							const newWord = newWords[ii];
 
 							addWord(newWord, []);
 
 							if (rule.combineable) {
 								for (let k = j + 1; k < _jlen; k++) {
-									let combineCode = ruleCodesArray[k];
+									const combineCode = ruleCodesArray[k];
 
-									let combineRule = this.rules[combineCode];
+									const combineRule = this.rules[combineCode];
 
 									if (combineRule) {
 										if (combineRule.combineable && (rule.type != combineRule.type)) {
-											let otherNewWords = this._applyRule(newWord, combineRule);
+											const otherNewWords = this._applyRule(newWord, combineRule);
 
 											for (let iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
-												let otherNewWord = otherNewWords[iii];
+												const otherNewWord = otherNewWords[iii];
 												addWord(otherNewWord, []);
 											}
 										}
@@ -572,11 +572,11 @@ Typo.prototype = {
 	 */
 
 	_applyRule : function (word, rule) {
-		let entries = rule.entries;
+		const entries = rule.entries;
 		let newWords = [];
 
 		for (let i = 0, _len = entries.length; i < _len; i++) {
-			let entry = entries[i];
+			const entry = entries[i];
 
 			if (!entry.match || word.match(entry.match)) {
 				let newWord = word;
@@ -596,7 +596,7 @@ Typo.prototype = {
 
 				if ("continuationClasses" in entry) {
 					for (let j = 0, _jlen = entry.continuationClasses.length; j < _jlen; j++) {
-						let continuationRule = this.rules[entry.continuationClasses[j]];
+						const continuationRule = this.rules[entry.continuationClasses[j]];
 
 						if (continuationRule) {
 							newWords = newWords.concat(this._applyRule(newWord, continuationRule));
@@ -637,7 +637,7 @@ Typo.prototype = {
 		}
 
 		// Remove leading and trailing whitespace
-		let trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		const trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
 
 		if (this.checkExact(trimmedWord)) {
 			return true;
@@ -647,7 +647,7 @@ Typo.prototype = {
 		if (trimmedWord.toUpperCase() === trimmedWord) {
 			// The word was supplied in all uppercase.
 			// Check for a capitalized form of the word.
-			let capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
+			const capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
 
 			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
@@ -665,7 +665,7 @@ Typo.prototype = {
 			}
 		}
 
-		let uncapitalizedWord = trimmedWord[0].toLowerCase() + trimmedWord.substring(1);
+		const uncapitalizedWord = trimmedWord[0].toLowerCase() + trimmedWord.substring(1);
 
 		if (uncapitalizedWord !== trimmedWord) {
 			if (this.hasFlag(uncapitalizedWord, "KEEPCASE")) {
@@ -695,7 +695,7 @@ Typo.prototype = {
 			throw "Dictionary not loaded.";
 		}
 
-		let ruleCodes = this.dictionaryTable[word];
+		const ruleCodes = this.dictionaryTable[word];
 
 		let i, _len;
 
@@ -772,7 +772,7 @@ Typo.prototype = {
 		limit = limit || 5;
 
 		if (this.memoized.hasOwnProperty(word)) {
-			let memoizedLimit = this.memoized[word]['limit'];
+			const memoizedLimit = this.memoized[word]['limit'];
 
 			// Only return the cached list if it's big enough or if there weren't enough suggestions
 			// to fill a smaller limit.
@@ -785,10 +785,10 @@ Typo.prototype = {
 
 		// Check the replacement table.
 		for (let i = 0, _len = this.replacementTable.length; i < _len; i++) {
-			let replacementEntry = this.replacementTable[i];
+			const replacementEntry = this.replacementTable[i];
 
 			if (word.indexOf(replacementEntry[0]) !== -1) {
-				let correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
+				const correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
 
 				if (this.check(correctedWord)) {
 					return [ correctedWord ];
@@ -829,7 +829,7 @@ Typo.prototype = {
 			}
 		}
 
-		let self = this;
+		const self = this;
 
 		interface Edits {
 			[key: string]: boolean;
@@ -847,11 +847,11 @@ Typo.prototype = {
 
 			let i, j, _iilen, _len, _jlen, _edit;
 
-			let alphabetLength = self.alphabet.length;
+			const alphabetLength = self.alphabet.length;
 
 			for (let word in words) {
 				for (i = 0, _len = word.length + 1; i < _len; i++) {
-					let s = [ word.substring(0, i), word.substring(i) ];
+					const s = [ word.substring(0, i), word.substring(i) ];
 
 					// Remove a letter.
 					if (s[1]) {
@@ -885,7 +885,7 @@ Typo.prototype = {
 					if (s[1]) {
 						// Replace a letter with another letter.
 
-						let lettercase = (s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
+						const lettercase = (s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
 
 						for (j = 0; j < alphabetLength; j++) {
 							let replacementLetter = self.alphabet[j];
@@ -915,7 +915,7 @@ Typo.prototype = {
 						// Add a letter between each letter.
 						for (j = 0; j < alphabetLength; j++) {
 							// If the letters on each side are capitalized, capitalize the replacement.
-							let lettercase = (s[0].substring(-1).toUpperCase() === s[0].substring(-1) && s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
+							const lettercase = (s[0].substring(-1).toUpperCase() === s[0].substring(-1) && s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
 
 							let replacementLetter = self.alphabet[j];
 
@@ -943,8 +943,8 @@ Typo.prototype = {
 
 		function correct(word: string) {
 			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			let ed1 = edits1({ [word] : true });
-			let ed2 = edits1(ed1, true);
+			const ed1 = edits1({ [word] : true });
+			const ed2 = edits1(ed1, true);
 
 			// Sort the edits based on how many different ways they were created.
 			let weighted_corrections = ed2;
@@ -973,8 +973,8 @@ Typo.prototype = {
 			}
 
 			function sorter(a, b) {
-				let a_val = a[1];
-				let b_val = b[1];
+				const a_val = a[1];
+				const b_val = b[1];
 				if (a_val < b_val) {
 					return -1;
 				} else if (a_val > b_val) {

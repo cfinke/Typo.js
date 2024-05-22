@@ -344,7 +344,7 @@ Typo.prototype = {
 
 			const ruleType = definitionParts[0];
 
-			if (ruleType == "PFX" || ruleType == "SFX") {
+			if (ruleType === "PFX" || ruleType === "SFX") {
 				const ruleCode = definitionParts[1];
 				const combineable = definitionParts[2];
 				numEntries = parseInt(definitionParts[3], 10);
@@ -393,7 +393,7 @@ Typo.prototype = {
 					entries.push(entry);
 				}
 
-				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable == "Y"), "entries" : entries } as AffixRule;
+				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable === "Y"), "entries" : entries } as AffixRule;
 
 				i += numEntries;
 			}
@@ -495,7 +495,7 @@ Typo.prototype = {
 				const ruleCodesArray = this.parseRuleCodes(parts[1]);
 
 				// Save the ruleCodes for compound word situations.
-				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
+				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1) {
 					addWord(word, ruleCodesArray);
 				}
 
@@ -1038,7 +1038,7 @@ Typo.prototype = {
 					sorted_corrections[i][0] = sorted_corrections[i][0].substr(0, 1).toUpperCase() + sorted_corrections[i][0].substr(1);
 				}
 
-				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST") && rv.indexOf(sorted_corrections[i][0]) == -1) {
+				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST") && rv.indexOf(sorted_corrections[i][0]) === -1) {
 					rv.push(sorted_corrections[i][0]);
 				}
 				else {

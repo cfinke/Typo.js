@@ -250,7 +250,7 @@ var Typo;
                 }
                 var definitionParts = line.split(/\s+/);
                 var ruleType = definitionParts[0];
-                if (ruleType == "PFX" || ruleType == "SFX") {
+                if (ruleType === "PFX" || ruleType === "SFX") {
                     var ruleCode = definitionParts[1];
                     var combineable = definitionParts[2];
                     numEntries = parseInt(definitionParts[3], 10);
@@ -288,7 +288,7 @@ var Typo;
                         }
                         entries.push(entry);
                     }
-                    rules[ruleCode] = { "type": ruleType, "combineable": (combineable == "Y"), "entries": entries };
+                    rules[ruleCode] = { "type": ruleType, "combineable": (combineable === "Y"), "entries": entries };
                     i += numEntries;
                 }
                 else if (ruleType === "COMPOUNDRULE") {
@@ -368,7 +368,7 @@ var Typo;
                 if (parts.length > 1) {
                     var ruleCodesArray = this.parseRuleCodes(parts[1]);
                     // Save the ruleCodes for compound word situations.
-                    if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) == -1) {
+                    if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1) {
                         addWord(word, ruleCodesArray);
                     }
                     for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
@@ -808,7 +808,7 @@ var Typo;
                     else if ("capitalized" === capitalization_scheme) {
                         sorted_corrections[i][0] = sorted_corrections[i][0].substr(0, 1).toUpperCase() + sorted_corrections[i][0].substr(1);
                     }
-                    if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST") && rv.indexOf(sorted_corrections[i][0]) == -1) {
+                    if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST") && rv.indexOf(sorted_corrections[i][0]) === -1) {
                         rv.push(sorted_corrections[i][0]);
                     }
                     else {

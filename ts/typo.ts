@@ -38,6 +38,19 @@ interface HashMap {
 	[key: string]: any;
 }
 
+interface AffixEntry {
+	add: string;
+	continuationClasses?: string[];
+	match?: RegExp;
+	remove?: RegExp|string;
+}
+
+interface AffixRule {
+	type: string;
+	combineable: boolean;
+	entries: AffixEntry[];
+}
+
 /**
  * Typo constructor.
  *
@@ -305,15 +318,8 @@ Typo.prototype = {
 	 * @returns object The rules from the file.
 	 */
 
-	_parseAFF : function (data) {
-		interface AFFEntry {
-			add: string;
-			continuationClasses?: string[];
-			match?: RegExp;
-			remove?: RegExp|string;
-		}
-
-		let rules = {};
+	_parseAFF : function (data: string): HashMap {
+		let rules: HashMap = {};
 
 		let line, subline, numEntries, lineParts;
 		let i, j, _len, _jlen;
@@ -338,7 +344,7 @@ Typo.prototype = {
 				const combineable = definitionParts[2];
 				numEntries = parseInt(definitionParts[3], 10);
 
-				let entries = [];
+				let entries: AffixEntry[] = [];
 
 				for (j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
 					subline = lines[j];
@@ -355,7 +361,7 @@ Typo.prototype = {
 
 					const regexToMatch = lineParts[4];
 
-					let entry: AFFEntry = {
+					let entry: AffixEntry = {
 						add : charactersToAdd
 					};
 
@@ -382,7 +388,7 @@ Typo.prototype = {
 					entries.push(entry);
 				}
 
-				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable == "Y"), "entries" : entries };
+				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable == "Y"), "entries" : entries } as AffixRule;
 
 				i += numEntries;
 			}

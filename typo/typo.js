@@ -668,18 +668,13 @@ var Typo;
              * Returns a hash keyed by all of the strings that can be made by making a single edit to the word (or words in) `words`
              * The value of each entry is the number of unique ways that the resulting word can be made.
              *
-             * @arg mixed words Either a hash keyed by words or a string word to operate on.
-             * @arg bool known_only Whether this function should ignore strings that are not in the dictionary.
+             * @arg Edits words A hash keyed by words (all with the value `true` to make lookups very quick).
+             * @arg boolean known_only Whether this function should ignore strings that are not in the dictionary.
              */
             function edits1(words, known_only) {
                 var rv = {};
                 var i, j, _iilen, _len, _jlen, _edit;
                 var alphabetLength = self.alphabet.length;
-                if (typeof words == 'string') {
-                    var word = words;
-                    words = {};
-                    words[word] = true;
-                }
                 for (var word in words) {
                     for (i = 0, _len = word.length + 1; i < _len; i++) {
                         var s = [word.substring(0, i), word.substring(i)];
@@ -756,8 +751,9 @@ var Typo;
                 return rv;
             }
             function correct(word) {
+                var _a;
                 // Get the edit-distance-1 and edit-distance-2 forms of this word.
-                var ed1 = edits1(word);
+                var ed1 = edits1((_a = {}, _a[word] = true, _a));
                 var ed2 = edits1(ed1, true);
                 // Sort the edits based on how many different ways they were created.
                 var weighted_corrections = ed2;

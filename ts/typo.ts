@@ -14,6 +14,26 @@ var Typo;
 (function () {
 "use strict";
 
+interface HunspellFlags {
+	PFX?: boolean;
+	SFX?: boolean;
+	REP?: boolean;
+	FLAG?: boolean;
+	COMPOUNDMIN?: boolean;
+	COMPOUNDRULE?: boolean;
+	ONLYINCOMPOUND?: boolean;
+	KEEPCASE?: boolean;
+	NOSUGGEST?: boolean;
+	NEEDAFFIX?: boolean;
+}
+
+interface TypoSettings {
+	dictionaryPath?: string;
+	flags?: HunspellFlags;
+	asyncLoad?: boolean;
+	loadedCallback?: Function;
+}
+
 /**
  * Typo constructor.
  *
@@ -44,7 +64,7 @@ var Typo;
  * @returns {Typo} A Typo object.
  */
 
-Typo = function (dictionary, affData, wordsData, settings) {
+Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: string|boolean, settings?: TypoSettings) {
 	settings = settings || {};
 
 	this.dictionary = null;

@@ -186,28 +186,28 @@ var Typo;
         _readFile: function (path, charset, async) {
             charset = charset || "utf8";
             if (typeof XMLHttpRequest !== 'undefined') {
-                var promise;
-                var req = new XMLHttpRequest();
-                req.open("GET", path, async);
+                var promise = void 0;
+                var req_1 = new XMLHttpRequest();
+                req_1.open("GET", path, async);
                 if (async) {
                     promise = new Promise(function (resolve, reject) {
-                        req.onload = function () {
-                            if (req.status === 200) {
-                                resolve(req.responseText);
+                        req_1.onload = function () {
+                            if (req_1.status === 200) {
+                                resolve(req_1.responseText);
                             }
                             else {
-                                reject(req.statusText);
+                                reject(req_1.statusText);
                             }
                         };
-                        req.onerror = function () {
-                            reject(req.statusText);
+                        req_1.onerror = function () {
+                            reject(req_1.statusText);
                         };
                     });
                 }
-                if (req.overrideMimeType)
-                    req.overrideMimeType("text/plain; charset=" + charset);
-                req.send(null);
-                return async ? promise : req.responseText;
+                if (req_1.overrideMimeType)
+                    req_1.overrideMimeType("text/plain; charset=" + charset);
+                req_1.send(null);
+                return async ? promise : req_1.responseText;
             }
             else if (typeof require !== 'undefined') {
                 // Node.js
@@ -675,9 +675,9 @@ var Typo;
                 var rv = {};
                 var i, j, _iilen, _len, _jlen, _edit;
                 var alphabetLength = self.alphabet.length;
-                for (var word in words) {
-                    for (i = 0, _len = word.length + 1; i < _len; i++) {
-                        var s = [word.substring(0, i), word.substring(i)];
+                for (var word_1 in words) {
+                    for (i = 0, _len = word_1.length + 1; i < _len; i++) {
+                        var s = [word_1.substring(0, i), word_1.substring(i)];
                         // Remove a letter.
                         if (s[1]) {
                             _edit = s[0] + s[1].substring(1);

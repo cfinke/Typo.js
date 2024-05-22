@@ -23,5 +23,9 @@
   "tonicExample": "var Typo = require('typo-js'); var dictionary = new Typo('en_US'); dictionary.check('mispelled');",
   "browser": {
     "fs": false
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^20.12.12",
   }
 }

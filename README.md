@@ -61,6 +61,13 @@ The full TypeScript source code and unit test suites are available in the offici
 
 To modify Typo.js, make your changes to `ts/typo.ts` and then run `build.sh` to generate the JavaScript file `typo/typo.js`.
 
+IRL
+===
+Typo.js has been been used all over in real-world projects, but here are a few examples:
+
+* [Parola](https://apps.apple.com/us/app/parola/id6474320336), a mobile word puzzle game
+* [A number of NPM packages](https://www.npmjs.com/browse/depended/typo-js)
+
 Licensing
 =========
 

@@ -22,6 +22,15 @@ var Typo = require("typo-js");
 var dictionary = new Typo([...]);
 ```
 
+or
+
+```javascript
+import Typo from "typo-js"
+var dictionary = new Typo("en_US", false, false, { dictionaryPath: "/node_modules/typo-js/dictionaries" })
+```
+
+Your path to `node_modules` may vary.
+
 To check if a word is spelled correctly, do this:
 
 ```javascript

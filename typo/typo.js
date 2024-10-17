@@ -60,33 +60,38 @@ var Typo;
             if (affData && wordsData) {
                 setup();
             }
-            // Loading data for Chrome extentions.
-            else if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
+            // Loading data for Chrome extensions or Firefox/Safari.
+            else if (typeof window !== 'undefined' && (window.chrome || window.browser)) {
+                const runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : browser.runtime;
+    
                 if (settings.dictionaryPath) {
                     path = settings.dictionaryPath;
-                }
-                else {
+                } else {
                     path = "typo/dictionaries";
                 }
-                if (!affData)
-                    readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
-                if (!wordsData)
-                    readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
+    
+                if (!affData) {
+                    readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
+                }
+                if (!wordsData) {
+                    readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
+                }
             }
+            // Loading data for Node.js or other environments.
             else {
                 if (settings.dictionaryPath) {
                     path = settings.dictionaryPath;
-                }
-                else if (typeof __dirname !== 'undefined') {
+                } else if (typeof __dirname !== 'undefined') {
                     path = __dirname + '/dictionaries';
-                }
-                else {
+                } else {
                     path = './dictionaries';
                 }
-                if (!affData)
+                if (!affData) {
                     readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
-                if (!wordsData)
+                }
+                if (!wordsData) {
                     readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
+                }
             }
         }
         function readDataFile(url, setFunc) {

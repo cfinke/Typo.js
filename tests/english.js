@@ -37,6 +37,9 @@ function testDictionary(dict) {
 		// Words that are object properties don't break anything.
 		deepEqual(dict.suggest("length"), [ ], "Correctly spelled words receive no suggestions.");
 		deepEqual(dict.suggest("length"), [ ], "Correctly spelled words receive no suggestions.");
+
+		// See https://github.com/cfinke/Typo.js/issues/87
+		deepEqual(dict.suggest("hostipal"), [ "hospital" ]);
 	});
 	
 	test("Correct checking of words with no affixes", function () {

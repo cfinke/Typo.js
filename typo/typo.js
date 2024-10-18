@@ -150,7 +150,7 @@ var Typo;
                         expressionText += character;
                     }
                 }
-                self.compoundRules[i] = new RegExp(expressionText, "i");
+                self.compoundRules[i] = new RegExp('^' + expressionText + '$', "i");
             }
             self.loaded = true;
             if ((settings === null || settings === void 0 ? void 0 : settings.asyncLoad) && (settings === null || settings === void 0 ? void 0 : settings.loadedCallback)) {

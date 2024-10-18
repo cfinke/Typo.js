@@ -220,7 +220,7 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 				}
 			}
 
-			self.compoundRules[i] = new RegExp(expressionText, "i");
+			self.compoundRules[i] = new RegExp( '^' + expressionText + '$', "i");
 		}
 
 		self.loaded = true;

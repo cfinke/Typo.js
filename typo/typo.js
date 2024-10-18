@@ -61,7 +61,8 @@ var Typo;
                 setup();
             }
             // Loading data for Chrome extentions.
-            else if (typeof window !== 'undefined' && 'chrome' in window && 'extension' in window.chrome && 'getURL' in window.chrome.extension) {
+            else if (typeof window !== 'undefined' && (window.chrome || window.browser)) {
+                var runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : browser.runtime;
                 if (settings.dictionaryPath) {
                     path = settings.dictionaryPath;
                 }
@@ -69,10 +70,11 @@ var Typo;
                     path = "typo/dictionaries";
                 }
                 if (!affData)
-                    readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
+                    readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
                 if (!wordsData)
-                    readDataFile(chrome.extension.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
+                    readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
             }
+            // Loading data for Node.js or other environments.
             else {
                 if (settings.dictionaryPath) {
                     path = settings.dictionaryPath;

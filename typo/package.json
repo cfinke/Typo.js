@@ -1,6 +1,6 @@
 {
   "name": "typo-js",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A Hunspell-style spellchecker.",
   "main": "typo.js",
   "repository": {
@@ -26,6 +26,6 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
-    "@types/node": "^20.12.12",
+    "@types/node": "^20.12.12"
   }
 }

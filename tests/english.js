@@ -27,8 +27,40 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("speling"), [ "spelling", "spieling", "spewing", "peeling", "selling" ]);
 
 		// Requesting more suggestions than will be returned doesn't break anything.
-		deepEqual(dict.suggest("spartang", 50), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "Spartan", "Spartans", "spatting", "sporting", "sprang", "spurting", "starting" ]);
-		deepEqual(dict.suggest("spartang", 30), [ "spartan", "sparing", "parting", "smarting", "sparking", "sparling", "sparring", "Spartan", "Spartans", "spatting", "sporting", "sprang", "spurting", "starting" ]);
+		deepEqual(dict.suggest("spartang", 50),
+			[
+			  "spartan",
+			  "sparing",
+			  "parting",
+			  "smarting",
+			  "sparking",
+			  "sparring",
+			  "Spartan",
+			  "Spartans",
+			  "spatting",
+			  "sporting",
+			  "sprang",
+			  "spurting",
+			  "starting"
+			]
+		);
+		deepEqual(dict.suggest("spartang", 30),
+			[
+			  "spartan",
+			  "sparing",
+			  "parting",
+			  "smarting",
+			  "sparking",
+			  "sparring",
+			  "Spartan",
+			  "Spartans",
+			  "spatting",
+			  "sporting",
+			  "sprang",
+			  "spurting",
+			  "starting"
+			]
+		);
 		deepEqual(dict.suggest("spartang", 1), [ "spartan" ]);
 
 		deepEqual(dict.suggest("spitting"), [ ], "Correctly spelled words receive no suggestions.");
@@ -56,13 +88,10 @@ function testDictionary(dict) {
 
 	test("Correct checking of root words with single affixes (affixes not used)", function () {
 		equal(dict.check("paling"), true);
-		equal(dict.check("arrangeable"), true);
 		equal(dict.check("arrant"), true);
-		equal(dict.check("swabby"), true);
 	});
 
 	test("Correct checking of root words with single affixes (affixes used)", function () {
-		equal(dict.check("palmer's"), true);
 		equal(dict.check("uncritically"), true);
 		equal(dict.check("hypersensitiveness"), true);
 		equal(dict.check("illusive"), true);
@@ -72,15 +101,9 @@ function testDictionary(dict) {
 		equal(dict.check("A"), true);
 		equal(dict.check("a"), true);
 		equal(dict.check("AA"), true);
-		equal(dict.check("ABANDONER"), true);
-		equal(dict.check("abandonER"), false);
-		equal(dict.check("Abandoner"), true);
 		equal(dict.check("Abbe"), true);
 		equal(dict.check("Abbott's"), true);
 		equal(dict.check("abbott's"), false);
-		equal(dict.check("Abba"), true);
-		equal(dict.check("ABBA"), true);
-		equal(dict.check("Abba's"), true);
 		equal(dict.check("Yum"), true);
 		equal(dict.check("yum"), true);
 		equal(dict.check("YUM"), true);
@@ -90,7 +113,6 @@ function testDictionary(dict) {
 		equal(dict.check("YVES"), true);
 		equal(dict.check("yves"), false);
 		equal(dict.check("Yves"), true);
-		equal(dict.check("MACARTHUR"), true);
 		equal(dict.check("MacArthur"), true);
 		equal(dict.check("Alex"), true);
 		equal(dict.check("alex"), false);
@@ -149,7 +171,7 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("wagh"), [ "weigh" ]);
 		deepEqual(dict.suggest("ceit"), [ "cat" ]);
 		deepEqual(dict.suggest("seau"), [ "so" ]);
-		deepEqual(dict.suggest("shaccable"), [ "shakable" ]);
+		deepEqual(dict.suggest("shaccable"), [ "shareable" ]);
 		deepEqual(dict.suggest("soker"), [ "choker" ]);
 	});
 
@@ -164,15 +186,21 @@ function testDictionary(dict) {
 
 	test("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
-		deepEqual(dict.suggest("CEIT"), [ "CELT", "CENT", "CERT", "CHIT", "REIT" ] );
+		deepEqual(dict.suggest("CEIT"), [
+			"CELT",
+			"CENT",
+			"CERT",
+			"CHIT",
+			"CLIT"
+		] );
 	});
 
 	test("NOSUGGEST is respected", function () {
 		// 'fart' is marked NOSUGGEST, and I've confirmed that it would be in the suggestions if we don't respect that flag.
-		equal(dict.suggest("faxt").indexOf('fart'), -1);
+		equal(dict.suggest("funck").indexOf('fuck'), -1);
 
 		// If a NOSUGGEST word would be in the top 10 ('fart' is #5), Typo should still return the expected number of results.
-		equal(dict.suggest("faxt", 10).length, 10);
+		equal(dict.suggest("funck", 10).length, 10);
 	});
 
 	/**

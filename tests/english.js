@@ -4,7 +4,7 @@ function run() {
 	var wordData = utilityDict._readFile(chrome.runtime.getURL("../typo/dictionaries/en_US/en_US.dic"));
 
 	var hashDict = new Typo("en_US", affData, wordData);
-	
+
 	testDictionary(hashDict);
 
 	var dict = new Typo("en_US", null, null, { dictionaryPath : "../typo/dictionaries", asyncLoad : true, loadedCallback : function () {
@@ -16,7 +16,7 @@ function testDictionary(dict) {
 	test("Dictionary object attributes are properly set", function () {
 		equal(dict.dictionary, "en_US");
 	});
-	
+
 	test("Suggestions", function () {
 		deepEqual(dict.suggest("speling", 3), [ "spelling", "spieling", "spewing" ]);
 
@@ -41,7 +41,7 @@ function testDictionary(dict) {
 		// See https://github.com/cfinke/Typo.js/issues/87
 		deepEqual(dict.suggest("hostipal"), [ "hospital" ]);
 	});
-	
+
 	test("Correct checking of words with no affixes", function () {
 		equal(dict.check("I"), true);
 		equal(dict.check("is"), true);
@@ -53,7 +53,7 @@ function testDictionary(dict) {
 		equal(dict.check("palmate"), true);
 		equal(dict.check("palpable"), true);
 	});
-	
+
 	test("Correct checking of root words with single affixes (affixes not used)", function () {
 		equal(dict.check("paling"), true);
 		equal(dict.check("arrangeable"), true);
@@ -67,7 +67,7 @@ function testDictionary(dict) {
 		equal(dict.check("hypersensitiveness"), true);
 		equal(dict.check("illusive"), true);
 	});
-	
+
 	test("Capitalization is respected.", function () {
 		equal(dict.check("A"), true);
 		equal(dict.check("a"), true);
@@ -95,7 +95,7 @@ function testDictionary(dict) {
 		equal(dict.check("Alex"), true);
 		equal(dict.check("alex"), false);
 	});
-	
+
 	test("Words not in the dictionary in any form are marked as misspelled.", function () {
 		equal(dict.check("aaraara"), false);
 		equal(dict.check("aaraara"), false);
@@ -103,7 +103,7 @@ function testDictionary(dict) {
 		equal(dict.check("aaraara"), false);
 		equal(dict.check("aaraara"), false);
 	});
-	
+
 	test("Leading and trailing whitespace is ignored.", function () {
 		equal(dict.check("concept "), true);
 		equal(dict.check(" concept"), true);
@@ -111,13 +111,13 @@ function testDictionary(dict) {
 		equal(dict.check("concept  "), true);
 		equal(dict.check("  concept  "), true);
 	});
-	
+
 	test("ONLYINCOMPOUND flag is respected", function () {
 		equal(dict.check("1th"), false);
 		equal(dict.check("2th"), false);
 		equal(dict.check("3th"), false);
 	});
-	
+
 	test("Compound words", function () {
 		equal(dict.check("1st"), true);
 		equal(dict.check("2nd"), true);
@@ -138,13 +138,13 @@ function testDictionary(dict) {
 		equal(dict.check("4rd"), false);
 		equal(dict.check("100st"), false);
 	});
-	
+
 	test("Possessives are properly checked.", function () {
 		equal(dict.check("concept's"), true);
 		// acceptability's is in the dictionary including the 's
 		equal(dict.check("acceptability's's"), false);
 	});
-	
+
 	test("Replacement rules are implemented", function () {
 		deepEqual(dict.suggest("wagh"), [ "weigh" ]);
 		deepEqual(dict.suggest("ceit"), [ "cat" ]);
@@ -152,7 +152,7 @@ function testDictionary(dict) {
 		deepEqual(dict.suggest("shaccable"), [ "shakable" ]);
 		deepEqual(dict.suggest("soker"), [ "choker" ]);
 	});
-	
+
 	test("Contractions", function () {
 		equal(dict.check("aren't"), true);
 		equal(dict.check("I'm"), true);
@@ -161,7 +161,7 @@ function testDictionary(dict) {
 		equal(dict.check("didn'ts"), false);
 		equal(dict.check("he're"), false);
 	});
-	
+
 	test("Capitalizations are handled properly.", function () {
 		deepEqual(dict.suggest("Wagh"), ["Weigh"]);
 		deepEqual(dict.suggest("CEIT"), [ "CELT", "CENT", "CERT", "CHIT", "REIT" ] );
@@ -170,7 +170,7 @@ function testDictionary(dict) {
 	test("NOSUGGEST is respected", function () {
 		// 'fart' is marked NOSUGGEST, and I've confirmed that it would be in the suggestions if we don't respect that flag.
 		equal(dict.suggest("faxt").indexOf('fart'), -1);
-		
+
 		// If a NOSUGGEST word would be in the top 10 ('fart' is #5), Typo should still return the expected number of results.
 		equal(dict.suggest("faxt", 10).length, 10);
 	});

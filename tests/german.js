@@ -1,7 +1,7 @@
 function run() {
 	var utilityDict = new Typo();
-	var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/de_DE/de_DE.aff"), "ISO8859-1");
-	var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/de_DE/de_DE.dic"), "ISO8859-1");
+	var affData = utilityDict._readFile(chrome.runtime.getURL("tests/dictionaries/de_DE/de_DE.aff"), "ISO8859-1");
+	var wordData = utilityDict._readFile(chrome.runtime.getURL("tests/dictionaries/de_DE/de_DE.dic"), "ISO8859-1");
 	
 	var hashDict = new Typo("de_DE", affData, wordData);
 	testDictionary(hashDict);

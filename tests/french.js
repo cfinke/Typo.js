@@ -1,7 +1,7 @@
 function run() {
 	var utilityDict = new Typo();
-	var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.aff"), "UTF-8");
-	var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/fr_FR/fr_FR.dic"), "UTF-8");
+	var affData = utilityDict._readFile(chrome.runtime.getURL("tests/dictionaries/fr_FR/fr_FR.aff"), "UTF-8");
+	var wordData = utilityDict._readFile(chrome.runtime.getURL("tests/dictionaries/fr_FR/fr_FR.dic"), "UTF-8");
 	
 	var hashDict = new Typo("fr_FR", affData, wordData);
 	testDictionary(hashDict);

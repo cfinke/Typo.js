@@ -1,8 +1,8 @@
 function run() {
 	var utilityDict = new Typo();
-	var affData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/en_GB/en_GB.aff"));
-	var wordData = utilityDict._readFile(chrome.extension.getURL("tests/dictionaries/en_GB/en_GB.dic"));
-	
+	var affData = utilityDict._readFile(chrome.runtime.getURL("tests/dictionaries/en_GB/en_GB.aff"));
+	var wordData = utilityDict._readFile(chrome.runtime.getURL("tests/dictionaries/en_GB/en_GB.dic"));
+
 	var hashDict = new Typo("en_GB", affData, wordData);
 	
 	testDictionary(hashDict);

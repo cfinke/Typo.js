@@ -778,6 +778,16 @@ var Typo;
                 var sorted_corrections = [];
                 for (i in weighted_corrections) {
                     if (weighted_corrections.hasOwnProperty(i)) {
+                        if (self.hasFlag(i, "PRIORITYSUGGEST")) {
+                            // We've defined a new affix rule called PRIORITYSUGGEST, indicating that
+                            // if this word is in the suggestions list for a misspelled word, it should
+                            // be given priority over other suggestions.
+                            //
+                            // Add a large number to its weight to push it to the top of the list.
+                            // If multiple priority suggestions are in the list, they'll still be ranked
+                            // against each other, but they'll all be above non-priority suggestions.
+                            weighted_corrections[i] += 1000;
+                        }
                         sorted_corrections.push([i, weighted_corrections[i]]);
                     }
                 }

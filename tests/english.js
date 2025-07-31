@@ -174,6 +174,36 @@ function testDictionary(dict) {
 		// If a NOSUGGEST word would be in the top 10 ('fart' is #5), Typo should still return the expected number of results.
 		equal(dict.suggest("faxt", 10).length, 10);
 	});
+
+	/**
+	 * This is not a great test, since it has deep knowledge of the data structures used
+	 * within Typo and modifies them manually, but it's the simplest way I could think to
+	 * test this without updating Typo to add methods for dynamically adding/removing
+	 * words, which I should probably also do.
+	 */
+	test("PRIORITYSUGGEST is respected", function () {
+		var misspelled_word = 'prioraty';
+		var priority_suggestion = 'priory';
+
+		// Confirm that our word is not the top suggestion before we give it priority.
+		equal( dict.suggest(misspelled_word, 5).indexOf( priority_suggestion ) == 0, false );
+		/* ['priority', 'priorly', 'Priority', 'priory', 'prorate'] */
+
+		// Delete the cached suggestions.
+		delete dict.memoized[misspelled_word];
+
+		// Add the PRIORITYSUGGEST flag and add our fake word with PRIORITYSUGGEST.
+		dict.flags['PRIORITYSUGGEST'] = '@';
+		dict.dictionaryTable[priority_suggestion].push('@');
+
+		// Confirm that our new high-priority suggestion is the top suggestion now.
+		equal( dict.suggest(misspelled_word, 5).indexOf(priority_suggestion), 0 );
+		/* ['priory', 'priority', 'priorly', 'Priority', 'prorate'] */
+
+		// Reset the dictionary state.
+		delete dict.flags['PRIORITYSUGGEST'];
+		dict.dictionaryTable[priority_suggestion].pop();
+	} );
 }
 
 addEventListener( "load", run, false );

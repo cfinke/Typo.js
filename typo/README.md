@@ -28,16 +28,31 @@ var array_of_suggestions = dictionary.suggest("mispeling");
 
 Typo.js has full support for the following Hunspell affix flags:
 
-* PFX
-* SFX
-* REP
-* FLAG
-* COMPOUNDMIN
-* COMPOUNDRULE
-* ONLYINCOMPOUND
-* KEEPCASE
-* NOSUGGEST
-* NEEDAFFIX
+* `PFX`
+* `SFX`
+* `REP`
+* `FLAG`
+* `COMPOUNDMIN`
+* `COMPOUNDRULE`
+* `ONLYINCOMPOUND`
+* `KEEPCASE`
+* `NOSUGGEST`
+* `NEEDAFFIX`
+
+It also supports the Typo-specific flag `PRIORITYSUGGEST`. This allows you to specify that certain words should be given priority in the suggestions list when correcting a mispelled word. If you add the following to your `.aff` file (ideally on the line after NOSUGGEST):
+
+```
+PRIORITYSUGGEST @
+```
+
+and then add the `@` flag to your new words in your `.dic` file, like
+
+```
+skibidi/@
+rizz/@
+```
+
+then those words will be prioritized above other suggestions if they already appear in the suggestions list.
 
 Development
 ===========

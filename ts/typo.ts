@@ -115,9 +115,9 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 		if (affData && wordsData) {
 			setup();
 		}
-		// Loading data for Chrome extentions.
-		else if (typeof window !== 'undefined' && (window.chrome || window.browser)) {
-			const runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : browser.runtime;
+		// Loading data for browser extentions.
+		else if (typeof window !== 'undefined' && ((window.chrome && window.chrome.runtime) || (window.browser && window.browser.runtime))) {
+			const runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : window.browser.runtime;
 
 			if (settings.dictionaryPath) {
 				path = settings.dictionaryPath;

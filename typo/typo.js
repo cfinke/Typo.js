@@ -60,9 +60,9 @@ var Typo;
             if (affData && wordsData) {
                 setup();
             }
-            // Loading data for Chrome extentions.
-            else if (typeof window !== 'undefined' && (window.chrome || window.browser)) {
-                var runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : browser.runtime;
+            // Loading data for browser extentions.
+            else if (typeof window !== 'undefined' && ((window.chrome && window.chrome.runtime) || (window.browser && window.browser.runtime))) {
+                var runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : window.browser.runtime;
                 if (settings.dictionaryPath) {
                     path = settings.dictionaryPath;
                 }

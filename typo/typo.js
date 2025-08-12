@@ -365,6 +365,9 @@ var Typo;
                     continue;
                 }
                 var parts = line.split("/", 2);
+                if (!line.includes("/")) {
+                    parts = line.split(/\s+/);
+                }
                 var word = parts[0];
                 // Now for each affix rule, generate that form of the word.
                 if (parts.length > 1) {

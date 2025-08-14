@@ -364,7 +364,18 @@ var Typo;
                     // Ignore empty lines.
                     continue;
                 }
-                var parts = line.split("/", 2);
+                // The line format is one of:
+                //     word
+                //     word/flags
+                //     word/flags xx:abc yy:def
+                //     word xx:abc yy:def
+                // We don't use the morphological flags (xx:abc, yy:def) and we don't want them included
+                // in the extracted flags.
+                var just_word_and_flags = line.replace(/\s.*$/, '');
+                // just_word_and_flags is definitely one of:
+                //     word
+                //     word/flags
+                var parts = just_word_and_flags.split('/', 2);
                 var word = parts[0];
                 // Now for each affix rule, generate that form of the word.
                 if (parts.length > 1) {

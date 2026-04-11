@@ -222,7 +222,7 @@ function testDictionary(dict) {
 
 		// Add the PRIORITYSUGGEST flag and add our fake word with PRIORITYSUGGEST.
 		dict.flags['PRIORITYSUGGEST'] = '@';
-		dict.dictionaryTable[priority_suggestion].push('@');
+		dict.dictionaryTable.get(priority_suggestion).push('@');
 
 		// Confirm that our new high-priority suggestion is the top suggestion now.
 		equal( dict.suggest(misspelled_word, 5).indexOf(priority_suggestion), 0 );
@@ -230,7 +230,7 @@ function testDictionary(dict) {
 
 		// Reset the dictionary state.
 		delete dict.flags['PRIORITYSUGGEST'];
-		dict.dictionaryTable[priority_suggestion].pop();
+		dict.dictionaryTable.get(priority_suggestion).pop();
 	} );
 }
 

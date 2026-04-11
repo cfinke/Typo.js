@@ -39,7 +39,7 @@ var Typo;
         settings = settings || {};
         this.dictionary = null;
         this.rules = {};
-        this.dictionaryTable = {};
+        this.dictionaryTable = new Map();
         this.compoundRules = [];
         this.compoundRuleCodes = {};
         this.replacementTable = [];
@@ -334,23 +334,23 @@ var Typo;
          * Parses the words out from the .dic file.
          *
          * @param {string} data The data from the dictionary file.
-         * @returns HashMap The lookup table containing all of the words and
+         * @returns {Map} The lookup table containing all of the words and
          *                 word forms from the dictionary.
          */
         _parseDIC: function (data) {
             data = this._removeDicComments(data);
             var lines = data.split(/\r?\n/);
-            var dictionaryTable = {};
+            var dictionaryTable = new Map();
             function addWord(word, rules) {
                 // Some dictionaries will list the same word multiple times with different rule sets.
-                if (!dictionaryTable.hasOwnProperty(word)) {
-                    dictionaryTable[word] = null;
+                if (!dictionaryTable.has(word)) {
+                    dictionaryTable.set(word, null);
                 }
                 if (rules.length > 0) {
-                    if (dictionaryTable[word] === null) {
-                        dictionaryTable[word] = [];
+                    if (dictionaryTable.get(word) === null) {
+                        dictionaryTable.set(word, []);
                     }
-                    dictionaryTable[word].push(rules);
+                    dictionaryTable.get(word).push(rules);
                 }
             }
             // The first line is the number of words in the dictionary.
@@ -567,7 +567,7 @@ var Typo;
             if (!this.loaded) {
                 throw "Dictionary not loaded.";
             }
-            var ruleCodes = this.dictionaryTable[word];
+            var ruleCodes = this.dictionaryTable.get(word);
             var i, _len;
             if (typeof ruleCodes === 'undefined') {
                 // Check if this might be a compound word.
@@ -606,7 +606,7 @@ var Typo;
             }
             if (flag in this.flags) {
                 if (typeof wordFlags === 'undefined') {
-                    wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
+                    wordFlags = Array.prototype.concat.apply([], this.dictionaryTable.get(word));
                 }
                 if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
                     return true;

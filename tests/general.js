@@ -6,7 +6,7 @@ function run() {
 
 	test("Dictionary instantiated without arguments is essentially empty.", function () {
 		deepEqual(empty_dict.rules, {});
-		deepEqual(empty_dict.dictionaryTable, {});
+		deepEqual(empty_dict.dictionaryTable, new Map());
 		deepEqual(empty_dict.dictionary, null);
 	});
 

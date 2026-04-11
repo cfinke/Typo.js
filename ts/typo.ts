@@ -93,7 +93,7 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 	this.dictionary = null;
 
 	this.rules = {};
-	this.dictionaryTable = {};
+	this.dictionaryTable = new Map();
 
 	this.compoundRules = [];
 	this.compoundRuleCodes = {};
@@ -459,28 +459,28 @@ Typo.prototype = {
 	 * Parses the words out from the .dic file.
 	 *
 	 * @param {string} data The data from the dictionary file.
-	 * @returns HashMap The lookup table containing all of the words and
+	 * @returns {Map} The lookup table containing all of the words and
 	 *                 word forms from the dictionary.
 	 */
 
-	_parseDIC : function (data: string): HashMap {
+	_parseDIC : function (data: string): Map<string, string[] | null> {
 		data = this._removeDicComments(data);
 
 		const lines = data.split(/\r?\n/);
-		let dictionaryTable: HashMap = {};
+		let dictionaryTable = new Map();
 
 		function addWord(word: string, rules: string[]): void {
 			// Some dictionaries will list the same word multiple times with different rule sets.
-			if (!dictionaryTable.hasOwnProperty(word)) {
-				dictionaryTable[word] = null;
+			if (!dictionaryTable.has(word)) {
+				dictionaryTable.set(word, null);
 			}
 
 			if (rules.length > 0) {
-				if (dictionaryTable[word] === null) {
-					dictionaryTable[word] = [];
+				if (dictionaryTable.get(word) === null) {
+					dictionaryTable.set(word, []);
 				}
 
-				dictionaryTable[word].push(rules);
+				dictionaryTable.get(word).push(rules);
 			}
 		}
 
@@ -748,7 +748,7 @@ Typo.prototype = {
 			throw "Dictionary not loaded.";
 		}
 
-		const ruleCodes = this.dictionaryTable[word];
+		const ruleCodes = this.dictionaryTable.get(word);
 
 		let i, _len;
 
@@ -793,7 +793,7 @@ Typo.prototype = {
 
 		if (flag in this.flags) {
 			if (typeof wordFlags === 'undefined') {
-				wordFlags = Array.prototype.concat.apply([], this.dictionaryTable[word]);
+				wordFlags = Array.prototype.concat.apply([], this.dictionaryTable.get(word));
 			}
 
 			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {

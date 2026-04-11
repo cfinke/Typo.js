@@ -3,10 +3,6 @@
 /* globals require: false */
 /* globals Buffer: false */
 /* globals module: false */
-/**
- * Typo is a JavaScript implementation of a spellchecker using hunspell-style
- * dictionaries.
- */
 var Typo;
 (function () {
     "use strict";
@@ -60,29 +56,29 @@ var Typo;
             if (affData && wordsData) {
                 setup();
             }
-            // Loading data for browser extentions.
-            else if (typeof window !== 'undefined' && ((window.chrome && window.chrome.runtime) || (window.browser && window.browser.runtime))) {
-                var runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : window.browser.runtime;
-                if (settings.dictionaryPath) {
-                    path = settings.dictionaryPath;
-                }
-                else {
-                    path = "typo/dictionaries";
-                }
-                if (!affData)
-                    readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
-                if (!wordsData)
-                    readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
-            }
-            // Loading data for Node.js or other environments.
             else {
-                if (settings.dictionaryPath) {
-                    path = settings.dictionaryPath;
+                if (typeof window !== 'undefined') {
+                    // Webpage or browser extension
+                    if (settings.dictionaryPath) {
+                        path = settings.dictionaryPath;
+                    }
+                    else {
+                        path = "typo/dictionaries";
+                    }
+                    // Browser extensions assume that the file is being loaded from the root of the extension.
+                    if (window.chrome && window.chrome.runtime && window.chrome.runtime.getURL) {
+                        path = window.chrome.runtime.getURL(path);
+                    }
+                    else if (window.browser && window.browser.runtime && window.browser.runtime.getURL) {
+                        path = window.browser.runtime.getURL(path);
+                    }
                 }
                 else if (typeof __dirname !== 'undefined') {
+                    // Node
                     path = __dirname + '/dictionaries';
                 }
                 else {
+                    // Node
                     path = './dictionaries';
                 }
                 if (!affData)

@@ -9,6 +9,11 @@
  * dictionaries.
  */
 
+interface Window {
+	chrome: any;
+	browser: any;
+}
+
 var Typo;
 
 (function () {
@@ -110,39 +115,37 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 
 	if (dictionary) {
 		self.dictionary = dictionary;
-
 		// If the data is preloaded, just setup the Typo object.
 		if (affData && wordsData) {
 			setup();
 		}
-		// Loading data for browser extentions.
-		else if (typeof window !== 'undefined' && ((window.chrome && window.chrome.runtime) || (window.browser && window.browser.runtime))) {
-			const runtime = window.chrome && window.chrome.runtime ? window.chrome.runtime : window.browser.runtime;
-
-			if (settings.dictionaryPath) {
-				path = settings.dictionaryPath;
-			}
-			else {
-				path = "typo/dictionaries";
-			}
-
-			if (!affData) readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".aff"), setAffData);
-			if (!wordsData) readDataFile(runtime.getURL(path + "/" + dictionary + "/" + dictionary + ".dic"), setWordsData);
-		}
-		// Loading data for Node.js or other environments.
 		else {
-			if (settings.dictionaryPath) {
-				path = settings.dictionaryPath;
-			}
-			else if (typeof __dirname !== 'undefined') {
+			if ( typeof window !== 'undefined' ) {
+				// Webpage or browser extension
+				if (settings.dictionaryPath) {
+					path = settings.dictionaryPath;
+				} else {
+					path = "typo/dictionaries";
+				}
+
+				// Browser extensions assume that the file is being loaded from the root of the extension.
+				if ( window.chrome && window.chrome.runtime && window.chrome.runtime.getURL ) {
+					path = window.chrome.runtime.getURL( path );
+				} else if ( window.browser && window.browser.runtime && window.browser.runtime.getURL ) {
+					path = window.browser.runtime.getURL( path );
+				}
+			} else if (typeof __dirname !== 'undefined') {
+				// Node
 				path = __dirname + '/dictionaries';
-			}
-			else {
+			} else {
+				// Node
 				path = './dictionaries';
 			}
 
-			if (!affData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
-			if (!wordsData) readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
+			if (!affData)
+				readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
+			if (!wordsData)
+				readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
 		}
 	}
 
@@ -244,10 +247,10 @@ Typo.prototype = {
 	 * @param {object} obj A hash of Typo properties, probably gotten from a JSON.parse(JSON.stringify(typo_instance)).
 	 */
 
-	load : function (obj: object) {
+	load : function (obj: Object) {
 		for (let i in obj) {
 			if (obj.hasOwnProperty(i)) {
-				this[i] = obj[i];
+				this[i] = (obj as any)[i];
 			}
 		}
 

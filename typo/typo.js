@@ -3,9 +3,95 @@
 /* globals require: false */
 /* globals Buffer: false */
 /* globals module: false */
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
 var Typo;
 (function () {
     "use strict";
+    function runGenSync(gen) {
+        var next;
+        while (!(next = gen.next()).done) { }
+        return next.value;
+    }
+    function runGenAsync(gen) {
+        if ((typeof window !== "undefined") && window.requestIdleCallback) {
+            // run the generator in idle callbacks
+            //
+            // The generator should yield periodically to allow prompt return to the event loop
+            // when the deadline is crossed.
+            return new Promise(function (resolve, reject) {
+                function idleCallback(deadline) {
+                    try {
+                        var next = void 0;
+                        while (!(next = gen.next()).done) {
+                            if (!deadline.timeRemaining()) {
+                                window.requestIdleCallback(idleCallback);
+                                return;
+                            }
+                        }
+                        resolve(next.value);
+                    }
+                    catch (err) {
+                        reject(err);
+                    }
+                }
+                window.requestIdleCallback(idleCallback);
+            });
+        }
+        else {
+            // fallback: run the generator in a single callback
+            return (function () {
+                return __awaiter(this, void 0, void 0, function () { return __generator(this, function (_a) {
+                    return [2 /*return*/, runGenSync(gen)];
+                }); });
+            })();
+        }
+    }
     /**
      * Typo constructor.
      *
@@ -28,7 +114,10 @@ var Typo;
      *                              environment.
      *                              {Object} [flags]: flag information.
      *                              {boolean} [asyncLoad]: If true, affData and wordsData will be loaded
-     *                              asynchronously.
+     *                              and parsed asynchronously. The parsing is scheduled in idle
+     *                              callbacks if available. You may consider loading a polyfill for
+     *                              window.requestIdleCallback to avoid freezes in browsers not
+     *                              supporting idle callbacks (eg: Safari).
      *                              {Function} [loadedCallback]: Called when both affData and wordsData
      *                              have been loaded. Only used if asyncLoad is set to true. The parameter
      *                              is the instantiated Typo object.
@@ -111,49 +200,67 @@ var Typo;
             }
         }
         function setup() {
-            self.rules = self._parseAFF(affData);
-            // Save the rule codes that are used in compound rules.
-            self.compoundRuleCodes = {};
-            for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
-                var rule = self.compoundRules[i];
-                for (j = 0, _jlen = rule.length; j < _jlen; j++) {
-                    self.compoundRuleCodes[rule[j]] = [];
+            if (settings === null || settings === void 0 ? void 0 : settings.asyncLoad) {
+                runGenAsync(setupGen()).catch(function (err) { return console.log("Dictionary parse error: ".concat(err)); });
+            }
+            else {
+                runGenSync(setupGen());
+            }
+        }
+        function setupGen() {
+            var rule, _a, ruleText, expressionText, character;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        self.rules = self._parseAFF(affData);
+                        // Save the rule codes that are used in compound rules.
+                        self.compoundRuleCodes = {};
+                        for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
+                            rule = self.compoundRules[i];
+                            for (j = 0, _jlen = rule.length; j < _jlen; j++) {
+                                self.compoundRuleCodes[rule[j]] = [];
+                            }
+                        }
+                        // If we add this ONLYINCOMPOUND flag to self.compoundRuleCodes, then _parseDIC
+                        // will do the work of saving the list of words that are compound-only.
+                        if ("ONLYINCOMPOUND" in self.flags) {
+                            self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
+                        }
+                        _a = self;
+                        return [5 /*yield**/, __values(self._parseDICGen(wordsData))];
+                    case 1:
+                        _a.dictionaryTable = _b.sent();
+                        // Get rid of any codes from the compound rule codes that are never used
+                        // (or that were special regex characters).  Not especially necessary...
+                        for (i in self.compoundRuleCodes) {
+                            if (self.compoundRuleCodes[i].length === 0) {
+                                delete self.compoundRuleCodes[i];
+                            }
+                        }
+                        // Build the full regular expressions for each compound rule.
+                        // I have a feeling (but no confirmation yet) that this method of
+                        // testing for compound words is probably slow.
+                        for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
+                            ruleText = self.compoundRules[i];
+                            expressionText = "";
+                            for (j = 0, _jlen = ruleText.length; j < _jlen; j++) {
+                                character = ruleText[j];
+                                if (character in self.compoundRuleCodes) {
+                                    expressionText += "(" + self.compoundRuleCodes[character].join("|") + ")";
+                                }
+                                else {
+                                    expressionText += character;
+                                }
+                            }
+                            self.compoundRules[i] = new RegExp('^' + expressionText + '$', "i");
+                        }
+                        self.loaded = true;
+                        if ((settings === null || settings === void 0 ? void 0 : settings.asyncLoad) && (settings === null || settings === void 0 ? void 0 : settings.loadedCallback)) {
+                            settings.loadedCallback(self);
+                        }
+                        return [2 /*return*/];
                 }
-            }
-            // If we add this ONLYINCOMPOUND flag to self.compoundRuleCodes, then _parseDIC
-            // will do the work of saving the list of words that are compound-only.
-            if ("ONLYINCOMPOUND" in self.flags) {
-                self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
-            }
-            self.dictionaryTable = self._parseDIC(wordsData);
-            // Get rid of any codes from the compound rule codes that are never used
-            // (or that were special regex characters).  Not especially necessary...
-            for (i in self.compoundRuleCodes) {
-                if (self.compoundRuleCodes[i].length === 0) {
-                    delete self.compoundRuleCodes[i];
-                }
-            }
-            // Build the full regular expressions for each compound rule.
-            // I have a feeling (but no confirmation yet) that this method of
-            // testing for compound words is probably slow.
-            for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
-                var ruleText = self.compoundRules[i];
-                var expressionText = "";
-                for (j = 0, _jlen = ruleText.length; j < _jlen; j++) {
-                    var character = ruleText[j];
-                    if (character in self.compoundRuleCodes) {
-                        expressionText += "(" + self.compoundRuleCodes[character].join("|") + ")";
-                    }
-                    else {
-                        expressionText += character;
-                    }
-                }
-                self.compoundRules[i] = new RegExp('^' + expressionText + '$', "i");
-            }
-            self.loaded = true;
-            if ((settings === null || settings === void 0 ? void 0 : settings.asyncLoad) && (settings === null || settings === void 0 ? void 0 : settings.loadedCallback)) {
-                settings.loadedCallback(self);
-            }
+            });
         }
         return this;
     };
@@ -338,9 +445,9 @@ var Typo;
          *                 word forms from the dictionary.
          */
         _parseDIC: function (data) {
-            data = this._removeDicComments(data);
-            var lines = data.split(/\r?\n/);
-            var dictionaryTable = new Map();
+            return runGenSync(this._parseDICGen(data));
+        },
+        _parseDICGen: function (data) {
             function addWord(word, rules) {
                 // Some dictionaries will list the same word multiple times with different rule sets.
                 if (!dictionaryTable.has(word)) {
@@ -353,68 +460,78 @@ var Typo;
                     dictionaryTable.get(word).push(rules);
                 }
             }
-            // The first line is the number of words in the dictionary.
-            for (var i = 1, _len = lines.length; i < _len; i++) {
-                var line = lines[i];
-                if (!line) {
-                    // Ignore empty lines.
-                    continue;
-                }
-                // The line format is one of:
-                //     word
-                //     word/flags
-                //     word/flags xx:abc yy:def
-                //     word xx:abc yy:def
-                // We don't use the morphological flags (xx:abc, yy:def) and we don't want them included
-                // in the extracted flags.
-                var just_word_and_flags = line.replace(/\s.*$/, '');
-                // just_word_and_flags is definitely one of:
-                //     word
-                //     word/flags
-                var parts = just_word_and_flags.split('/', 2);
-                var word = parts[0];
-                // Now for each affix rule, generate that form of the word.
-                if (parts.length > 1) {
-                    var ruleCodesArray = this.parseRuleCodes(parts[1]);
-                    // Save the ruleCodes for compound word situations.
-                    if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1) {
-                        addWord(word, ruleCodesArray);
-                    }
-                    for (var j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
-                        var code = ruleCodesArray[j];
-                        var rule = this.rules[code];
-                        if (rule) {
-                            var newWords = this._applyRule(word, rule);
-                            for (var ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
-                                var newWord = newWords[ii];
-                                addWord(newWord, []);
-                                if (rule.combineable) {
-                                    for (var k = j + 1; k < _jlen; k++) {
-                                        var combineCode = ruleCodesArray[k];
-                                        var combineRule = this.rules[combineCode];
-                                        if (combineRule) {
-                                            if (combineRule.combineable && (rule.type != combineRule.type)) {
-                                                var otherNewWords = this._applyRule(newWord, combineRule);
-                                                for (var iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
-                                                    var otherNewWord = otherNewWords[iii];
-                                                    addWord(otherNewWord, []);
+            var lines, dictionaryTable, i, _len, line, just_word_and_flags, parts, word, ruleCodesArray, j, _jlen, code, rule, newWords, ii, _iilen, newWord, k, combineCode, combineRule, otherNewWords, iii, _iiilen, otherNewWord;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        data = this._removeDicComments(data);
+                        lines = data.split(/\r?\n/);
+                        dictionaryTable = new Map();
+                        i = 1, _len = lines.length;
+                        _a.label = 1;
+                    case 1:
+                        if (!(i < _len)) return [3 /*break*/, 5];
+                        if (!!(i & 63)) return [3 /*break*/, 3];
+                        return [4 /*yield*/];
+                    case 2:
+                        _a.sent();
+                        _a.label = 3;
+                    case 3:
+                        line = lines[i];
+                        if (!line) {
+                            // Ignore empty lines.
+                            return [3 /*break*/, 4];
+                        }
+                        just_word_and_flags = line.replace(/\s.*$/, '');
+                        parts = just_word_and_flags.split('/', 2);
+                        word = parts[0];
+                        // Now for each affix rule, generate that form of the word.
+                        if (parts.length > 1) {
+                            ruleCodesArray = this.parseRuleCodes(parts[1]);
+                            // Save the ruleCodes for compound word situations.
+                            if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1) {
+                                addWord(word, ruleCodesArray);
+                            }
+                            for (j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
+                                code = ruleCodesArray[j];
+                                rule = this.rules[code];
+                                if (rule) {
+                                    newWords = this._applyRule(word, rule);
+                                    for (ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
+                                        newWord = newWords[ii];
+                                        addWord(newWord, []);
+                                        if (rule.combineable) {
+                                            for (k = j + 1; k < _jlen; k++) {
+                                                combineCode = ruleCodesArray[k];
+                                                combineRule = this.rules[combineCode];
+                                                if (combineRule) {
+                                                    if (combineRule.combineable && (rule.type != combineRule.type)) {
+                                                        otherNewWords = this._applyRule(newWord, combineRule);
+                                                        for (iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
+                                                            otherNewWord = otherNewWords[iii];
+                                                            addWord(otherNewWord, []);
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
+                                if (code in this.compoundRuleCodes) {
+                                    this.compoundRuleCodes[code].push(word);
+                                }
                             }
                         }
-                        if (code in this.compoundRuleCodes) {
-                            this.compoundRuleCodes[code].push(word);
+                        else {
+                            addWord(word.trim(), []);
                         }
-                    }
+                        _a.label = 4;
+                    case 4:
+                        i++;
+                        return [3 /*break*/, 1];
+                    case 5: return [2 /*return*/, dictionaryTable];
                 }
-                else {
-                    addWord(word.trim(), []);
-                }
-            }
-            return dictionaryTable;
+            });
         },
         /**
          * Removes comment lines and then cleans up blank lines and trailing whitespace.

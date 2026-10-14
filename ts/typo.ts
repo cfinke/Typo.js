@@ -57,6 +57,42 @@ interface AffixRule {
 	entries: AffixEntry[];
 }
 
+function runGenSync<T>(gen: Generator<void, T, void>): T {
+	let next;
+	while (!(next = gen.next()).done) {}
+	return next.value;
+}
+
+function runGenAsync<T>(gen: Generator<void, T, void>): Promise<T> {
+	if ((typeof window !== "undefined") && window.requestIdleCallback) {
+		// run the generator in idle callbacks
+		//
+		// The generator should yield periodically to allow prompt return to the event loop
+		// when the deadline is crossed.
+		return new Promise((resolve, reject) => {
+			function idleCallback(deadline: IdleDeadline) {
+				try {
+					let next;
+					while (!(next = gen.next()).done) {
+						if (!deadline.timeRemaining()) {
+							window.requestIdleCallback(idleCallback)
+							return;
+						}
+					}
+					resolve(next.value);
+				} catch (err) {
+					reject(err);
+				}
+			}
+			window.requestIdleCallback(idleCallback);
+		});
+	} else {
+		// fallback: run the generator in a single callback
+		return (async function() { return runGenSync(gen); })();
+	}
+}
+
+
 /**
  * Typo constructor.
  *
@@ -79,7 +115,10 @@ interface AffixRule {
  *                              environment.
  *                              {Object} [flags]: flag information.
  *                              {boolean} [asyncLoad]: If true, affData and wordsData will be loaded
- *                              asynchronously.
+ *                              and parsed asynchronously. The parsing is scheduled in idle
+ *                              callbacks if available. You may consider loading a polyfill for
+ *                              window.requestIdleCallback to avoid freezes in browsers not
+ *                              supporting idle callbacks (eg: Safari).
  *                              {Function} [loadedCallback]: Called when both affData and wordsData
  *                              have been loaded. Only used if asyncLoad is set to true. The parameter
  *                              is the instantiated Typo object.
@@ -179,6 +218,15 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 	}
 
 	function setup(): void {
+		if (settings?.asyncLoad) {
+			runGenAsync(setupGen()).catch(
+				(err) => console.log(`Dictionary parse error: ${err}`));
+		} else {
+			runGenSync(setupGen());
+		}
+	}
+
+	function* setupGen(): Generator<void, void, void> {
 		self.rules = self._parseAFF(affData);
 
 		// Save the rule codes that are used in compound rules.
@@ -198,7 +246,7 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 			self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
 		}
 
-		self.dictionaryTable = self._parseDIC(wordsData);
+		self.dictionaryTable = yield* self._parseDICGen(wordsData);
 
 		// Get rid of any codes from the compound rule codes that are never used
 		// (or that were special regex characters).  Not especially necessary...
@@ -464,6 +512,10 @@ Typo.prototype = {
 	 */
 
 	_parseDIC : function (data: string): Map<string, string[] | null> {
+		return runGenSync(this._parseDICGen(data));
+	},
+
+	_parseDICGen : function* (data: string): Generator<void, Map<string, string[] | null>, void> {
 		data = this._removeDicComments(data);
 
 		const lines = data.split(/\r?\n/);
@@ -486,6 +538,10 @@ Typo.prototype = {
 
 		// The first line is the number of words in the dictionary.
 		for (let i = 1, _len = lines.length; i < _len; i++) {
+			if (!(i & 63)) {
+				yield;
+			}
+
 			const line = lines[i];
 
 			if (!line) {

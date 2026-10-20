@@ -198,15 +198,37 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 				path = './dictionaries';
 			}
 
-			if (!affData)
-				readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
-			if (!wordsData)
-				readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
+			const affPath = path + "/" + dictionary + "/" + dictionary + ".aff";
+			const dicPath = path + "/" + dictionary + "/" + dictionary + ".dic";
+
+			if (!affData) {
+				// The .aff file's SET line declares the charset of both files, so it has to
+				// be read before the .dic file. It's read as UTF-8 first, which is what most
+				// dictionaries use. If it declares another charset, both files are read
+				// again in that charset.
+				readDataFile(affPath, function (data: string): void {
+					const charset = self._getCharset(data);
+
+					if (charset === "utf8") {
+						setAffData(data);
+					}
+					else {
+						readDataFile(affPath, setAffData, charset);
+					}
+
+					if (!wordsData) {
+						readDataFile(dicPath, setWordsData, charset);
+					}
+				}, "utf8");
+			}
+			else if (!wordsData) {
+				readDataFile(dicPath, setWordsData, self._getCharset(affData as string));
+			}
 		}
 	}
 
-	function readDataFile(url: string, setFunc: Function): void {
-		const response = self._readFile(url, null, settings?.asyncLoad);
+	function readDataFile(url: string, setFunc: Function, charset: string): void {
+		const response = self._readFile(url, charset, settings?.asyncLoad);
 
 		if (settings?.asyncLoad) {
 			response.then(function(data: string): void {
@@ -326,7 +348,8 @@ Typo.prototype = {
 	 * Read the contents of a file.
 	 *
 	 * @param {string} path The path (relative) to the file.
-	 * @param {string} [charset="ISO8859-1"] The expected charset of the file
+	 * @param {string} [charset="utf8"] The charset of the file, as named on the .aff file's
+	 *                                   SET line (e.g. "UTF-8" or "ISO8859-1").
 	 * @param {boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
 	 *        files are read synchronously.
 	 * @returns {string} The file data if async is false, otherwise a promise object. If running node.js, the data is
@@ -373,7 +396,21 @@ Typo.prototype = {
 
 			try {
 				if (fs.existsSync(path)) {
-					return fs.readFileSync(path, charset);
+					if (/^utf-?8$/i.test(charset)) {
+						return fs.readFileSync(path, "utf8");
+					}
+
+					// Hunspell charset names such as "ISO8859-1" aren't valid Node.js
+					// encodings, but TextDecoder understands them.
+					const bytes = fs.readFileSync(path);
+
+					try {
+						return new TextDecoder(charset).decode(bytes);
+					} catch (e) {
+						console.log("Unsupported charset " + charset + "; reading " + path + " as UTF-8.");
+
+						return bytes.toString("utf8");
+					}
 				}
 				else {
 					console.log("Path " + path + " does not exist.");
@@ -386,6 +423,23 @@ Typo.prototype = {
 		}
 
 		return '';
+	},
+
+	/**
+	 * Determines the charset of a dictionary from the SET line of its .aff file.
+	 *
+	 * @param {string} affData The data from the dictionary's .aff file.
+	 * @returns {string} "utf8", or the charset name as written in the .aff file.
+	 */
+
+	_getCharset : function (affData: string): string {
+		const match = affData.match(/^[ \t]*SET[ \t]+(\S+)/m);
+
+		if (!match || /^utf-?8$/i.test(match[1])) {
+			return "utf8";
+		}
+
+		return match[1];
 	},
 
 	/**

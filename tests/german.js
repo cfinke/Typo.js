@@ -33,6 +33,12 @@ function testDictionary(dict) {
 		equal(dict.check("paarbildung"), false);
 		equal(dict.check("Bild"), true);
 	});
+
+	test("Issue #15: the charset declared in the .aff file is honored", function () {
+		equal(dict.check("St\u00E4rke"), true);
+		equal(dict.check("St\u00E4rken"), true);
+		equal(dict.check("St\u00E4rke".normalize("NFD")), false);
+	});
 }
 
 addEventListener( "load", run, false );

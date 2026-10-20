@@ -172,14 +172,33 @@ var Typo;
                     // Node
                     path = './dictionaries';
                 }
-                if (!affData)
-                    readDataFile(path + "/" + dictionary + "/" + dictionary + ".aff", setAffData);
-                if (!wordsData)
-                    readDataFile(path + "/" + dictionary + "/" + dictionary + ".dic", setWordsData);
+                var affPath_1 = path + "/" + dictionary + "/" + dictionary + ".aff";
+                var dicPath_1 = path + "/" + dictionary + "/" + dictionary + ".dic";
+                if (!affData) {
+                    // The .aff file's SET line declares the charset of both files, so it has to
+                    // be read before the .dic file. It's read as UTF-8 first, which is what most
+                    // dictionaries use. If it declares another charset, both files are read
+                    // again in that charset.
+                    readDataFile(affPath_1, function (data) {
+                        var charset = self._getCharset(data);
+                        if (charset === "utf8") {
+                            setAffData(data);
+                        }
+                        else {
+                            readDataFile(affPath_1, setAffData, charset);
+                        }
+                        if (!wordsData) {
+                            readDataFile(dicPath_1, setWordsData, charset);
+                        }
+                    }, "utf8");
+                }
+                else if (!wordsData) {
+                    readDataFile(dicPath_1, setWordsData, self._getCharset(affData));
+                }
             }
         }
-        function readDataFile(url, setFunc) {
-            var response = self._readFile(url, null, settings === null || settings === void 0 ? void 0 : settings.asyncLoad);
+        function readDataFile(url, setFunc, charset) {
+            var response = self._readFile(url, charset, settings === null || settings === void 0 ? void 0 : settings.asyncLoad);
             if (settings === null || settings === void 0 ? void 0 : settings.asyncLoad) {
                 response.then(function (data) {
                     setFunc(data);
@@ -284,7 +303,8 @@ var Typo;
          * Read the contents of a file.
          *
          * @param {string} path The path (relative) to the file.
-         * @param {string} [charset="ISO8859-1"] The expected charset of the file
+         * @param {string} [charset="utf8"] The charset of the file, as named on the .aff file's
+         *                                   SET line (e.g. "UTF-8" or "ISO8859-1").
          * @param {boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
          *        files are read synchronously.
          * @returns {string} The file data if async is false, otherwise a promise object. If running node.js, the data is
@@ -324,7 +344,19 @@ var Typo;
                 var fs = require("fs");
                 try {
                     if (fs.existsSync(path)) {
-                        return fs.readFileSync(path, charset);
+                        if (/^utf-?8$/i.test(charset)) {
+                            return fs.readFileSync(path, "utf8");
+                        }
+                        // Hunspell charset names such as "ISO8859-1" aren't valid Node.js
+                        // encodings, but TextDecoder understands them.
+                        var bytes = fs.readFileSync(path);
+                        try {
+                            return new TextDecoder(charset).decode(bytes);
+                        }
+                        catch (e) {
+                            console.log("Unsupported charset " + charset + "; reading " + path + " as UTF-8.");
+                            return bytes.toString("utf8");
+                        }
                     }
                     else {
                         console.log("Path " + path + " does not exist.");
@@ -336,6 +368,19 @@ var Typo;
                 return '';
             }
             return '';
+        },
+        /**
+         * Determines the charset of a dictionary from the SET line of its .aff file.
+         *
+         * @param {string} affData The data from the dictionary's .aff file.
+         * @returns {string} "utf8", or the charset name as written in the .aff file.
+         */
+        _getCharset: function (affData) {
+            var match = affData.match(/^[ \t]*SET[ \t]+(\S+)/m);
+            if (!match || /^utf-?8$/i.test(match[1])) {
+                return "utf8";
+            }
+            return match[1];
         },
         /**
          * Parse the rules out from a .aff file.

@@ -31,6 +31,12 @@ var dictionary = new Typo("en_US", false, false, { dictionaryPath: "/node_module
 
 Your path to `node_modules` may vary.
 
+When Typo.js loads the dictionary files itself, it honors the charset declared on the `SET` line of the `.aff` file (e.g. `SET ISO8859-1`). If you read the files yourself and pass their contents to the constructor, decode them with that charset; the `_readFile` helper accepts it as its second argument:
+
+```javascript
+var affData = dictionary._readFile("path/to/de_DE.aff", "ISO8859-1");
+```
+
 To check if a word is spelled correctly, do this:
 
 ```javascript

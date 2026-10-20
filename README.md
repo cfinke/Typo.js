@@ -57,6 +57,8 @@ Typo.js has full support for the following Hunspell affix flags:
 * `KEEPCASE`
 * `NOSUGGEST`
 * `NEEDAFFIX`
+* `ICONV`
+* `OCONV`
 
 It also supports the Typo-specific flag `PRIORITYSUGGEST`. This allows you to specify that certain words should be given priority in the suggestions list when correcting a mispelled word. If you add the following to your `.aff` file (ideally on the line after NOSUGGEST):
 

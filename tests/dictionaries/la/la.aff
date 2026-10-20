@@ -1,5 +1,10 @@
-SET ISO8859-1
+SET UTF-8
 TRY esianrtolcdugmphbyfvkw
+ICONV 4
+ICONV Ã¦ ae
+ICONV Ã† AE
+ICONV Å“ oe
+ICONV Å’ OE
 SFX a Y 124
 SFX a a a a 
 SFX a a ae a 
@@ -1015,7 +1020,7 @@ SFX t is iterne is
 SFX t is iterve is 
 SFX A Y 590
 SFX A o o o 
-SFX A o as o # actif infectum personnel indicatif présent
+SFX A o as o # actif infectum personnel indicatif prÃ©sent
 SFX A o asque o 
 SFX A o asne o 
 SFX A o asve o 
@@ -1083,7 +1088,7 @@ SFX A o abunt o
 SFX A o abuntque o 
 SFX A o abuntne o 
 SFX A o abuntve o 
-SFX A o em o # actif infectum personnel subjonctif présent
+SFX A o em o # actif infectum personnel subjonctif prÃ©sent
 SFX A o emque o 
 SFX A o emne o 
 SFX A o emve o 
@@ -1131,7 +1136,7 @@ SFX A o arent o
 SFX A o arentque o 
 SFX A o arentne o 
 SFX A o arentve o 
-SFX A o a o # actif infectum personnel impératif présent
+SFX A o a o # actif infectum personnel impÃ©ratif prÃ©sent
 SFX A o aque o 
 SFX A o ane o 
 SFX A o ave o 
@@ -1139,11 +1144,11 @@ SFX A o ate o
 SFX A o ateque o 
 SFX A o atene o 
 SFX A o ateve o 
-SFX A o are o # actif infectum impersonnel infinitif présent
+SFX A o are o # actif infectum impersonnel infinitif prÃ©sent
 SFX A o areque o 
 SFX A o arene o 
 SFX A o areve o 
-SFX A o andum o # gérondif
+SFX A o andum o # gÃ©rondif
 SFX A o andumque o 
 SFX A o andumne o 
 SFX A o andumve o 
@@ -1155,7 +1160,7 @@ SFX A o ando o
 SFX A o andoque o 
 SFX A o andone o 
 SFX A o andove o 
-SFX A o ans o # participe présent actif
+SFX A o ans o # participe prÃ©sent actif
 SFX A o ansque o 
 SFX A o ansne o 
 SFX A o ansve o 
@@ -1191,7 +1196,7 @@ SFX A o antia o
 SFX A o antiaque o 
 SFX A o antiane o 
 SFX A o antiave o 
-SFX A 0 r o # passif infectum personnel indicatif présent
+SFX A 0 r o # passif infectum personnel indicatif prÃ©sent
 SFX A 0 rque o 
 SFX A 0 rne o 
 SFX A 0 rve o 
@@ -1263,7 +1268,7 @@ SFX A o abuntur o
 SFX A o abunturque o 
 SFX A o abunturne o 
 SFX A o abunturve o 
-SFX A o er o # passif infectum personnel subjonctif présent
+SFX A o er o # passif infectum personnel subjonctif prÃ©sent
 SFX A o erque o 
 SFX A o erne o 
 SFX A o erve o 
@@ -1311,7 +1316,7 @@ SFX A o arentur o
 SFX A o arenturque o 
 SFX A o arenturne o 
 SFX A o arenturve o 
-SFX A o are o # passif infectum impératif
+SFX A o are o # passif infectum impÃ©ratif
 SFX A o areque o 
 SFX A o arene o 
 SFX A o areve o 
@@ -1376,7 +1381,7 @@ SFX A o andarumque o
 SFX A o andarumne o 
 SFX A o andarumve o 
 SFX A 0 or or 
-SFX A 0 r or # infectum personnel indicatif présent
+SFX A 0 r or # infectum personnel indicatif prÃ©sent
 SFX A 0 rque or 
 SFX A 0 rne or 
 SFX A 0 rve or 
@@ -1448,7 +1453,7 @@ SFX A or abuntur or
 SFX A or abunturque or 
 SFX A or abunturne or 
 SFX A or abunturve or 
-SFX A or er or # infectum personnel subjonctif présent
+SFX A or er or # infectum personnel subjonctif prÃ©sent
 SFX A or erque or 
 SFX A or erne or 
 SFX A or erve or 
@@ -1496,15 +1501,15 @@ SFX A or arentur or
 SFX A or arenturque or 
 SFX A or arenturne or 
 SFX A or arenturve or 
-SFX A or are or # impératif présent
+SFX A or are or # impÃ©ratif prÃ©sent
 SFX A or areque or 
 SFX A or arene or 
 SFX A or areve or 
-SFX A or ari or # infinitif présent
+SFX A or ari or # infinitif prÃ©sent
 SFX A or arique or 
 SFX A or arine or 
 SFX A or arive or 
-SFX A or ans or # participe présent
+SFX A or ans or # participe prÃ©sent
 SFX A or ansque or 
 SFX A or ansne or 
 SFX A or ansve or 
@@ -1540,7 +1545,7 @@ SFX A or antia or
 SFX A or antiaque or 
 SFX A or antiane or 
 SFX A or antiave or 
-SFX A or andum or # gérondif
+SFX A or andum or # gÃ©rondif
 SFX A or andumque or 
 SFX A or andumne or 
 SFX A or andumve or 
@@ -1606,7 +1611,7 @@ SFX A or andarumne or
 SFX A or andarumve or 
 SFX B Y 1806
 SFX B o o eo 
-SFX B o s eo # actif infectum personnel indicatif présent
+SFX B o s eo # actif infectum personnel indicatif prÃ©sent
 SFX B o sque eo 
 SFX B o sne eo 
 SFX B o sve eo 
@@ -1674,7 +1679,7 @@ SFX B o bunt eo
 SFX B o buntque eo 
 SFX B o buntne eo 
 SFX B o buntve eo 
-SFX B o am eo # actif infectum personnel subjonctif présent
+SFX B o am eo # actif infectum personnel subjonctif prÃ©sent
 SFX B o amque eo 
 SFX B o amne eo 
 SFX B o amve eo 
@@ -1722,7 +1727,7 @@ SFX B o rent eo
 SFX B o rentque eo 
 SFX B o rentne eo 
 SFX B o rentve eo 
-SFX B eo e eo # actif infectum personnel impératif présent
+SFX B eo e eo # actif infectum personnel impÃ©ratif prÃ©sent
 SFX B eo eque eo 
 SFX B eo ene eo 
 SFX B eo eve eo 
@@ -1730,11 +1735,11 @@ SFX B o te eo
 SFX B o teque eo 
 SFX B o tene eo 
 SFX B o teve eo 
-SFX B o re eo # actif infectum impersonnel infinitif présent
+SFX B o re eo # actif infectum impersonnel infinitif prÃ©sent
 SFX B o reque eo 
 SFX B o rene eo 
 SFX B o reve eo 
-SFX B o ndum eo # gérondif
+SFX B o ndum eo # gÃ©rondif
 SFX B o ndumque eo 
 SFX B o ndumne eo 
 SFX B o ndumve eo 
@@ -1746,7 +1751,7 @@ SFX B o ndo eo
 SFX B o ndoque eo 
 SFX B o ndone eo 
 SFX B o ndove eo 
-SFX B o ns eo # participe présent actif
+SFX B o ns eo # participe prÃ©sent actif
 SFX B o nsque eo 
 SFX B o nsne eo 
 SFX B o nsve eo 
@@ -1782,7 +1787,7 @@ SFX B o ntia eo
 SFX B o ntiaque eo 
 SFX B o ntiane eo 
 SFX B o ntiave eo 
-SFX B 0 r eo # passif infectum personnel indicatif présent
+SFX B 0 r eo # passif infectum personnel indicatif prÃ©sent
 SFX B 0 rque eo 
 SFX B 0 rne eo 
 SFX B 0 rve eo 
@@ -1854,7 +1859,7 @@ SFX B o buntur eo
 SFX B o bunturque eo 
 SFX B o bunturne eo 
 SFX B o bunturve eo 
-SFX B o ar eo # passif infectum personnel subjonctif présent
+SFX B o ar eo # passif infectum personnel subjonctif prÃ©sent
 SFX B o arque eo 
 SFX B o arne eo 
 SFX B o arve eo 
@@ -1967,7 +1972,7 @@ SFX B o ndarumque eo
 SFX B o ndarumne eo 
 SFX B o ndarumve eo 
 SFX B or or eor 
-SFX B or ris eor # infectum personnel indicatif présent
+SFX B or ris eor # infectum personnel indicatif prÃ©sent
 SFX B or risque eor 
 SFX B or risne eor 
 SFX B or risve eor 
@@ -2035,7 +2040,7 @@ SFX B or buntur eor
 SFX B or bunturque eor 
 SFX B or bunturne eor 
 SFX B or bunturve eor 
-SFX B or ar eor # infectum personnel subjonctif présent
+SFX B or ar eor # infectum personnel subjonctif prÃ©sent
 SFX B or arque eor 
 SFX B or arne eor 
 SFX B or arve eor 
@@ -2083,15 +2088,15 @@ SFX B or rentur eor
 SFX B or renturque eor 
 SFX B or renturne eor 
 SFX B or renturve eor 
-SFX B or re eor # impératif présent
+SFX B or re eor # impÃ©ratif prÃ©sent
 SFX B or reque eor 
 SFX B or rene eor 
 SFX B or reve eor 
-SFX B or ri eor # infinitif présent
+SFX B or ri eor # infinitif prÃ©sent
 SFX B or rique eor 
 SFX B or rine eor 
 SFX B or rive eor 
-SFX B or ns eor # participe présent
+SFX B or ns eor # participe prÃ©sent
 SFX B or nsque eor 
 SFX B or nsne eor 
 SFX B or nsve eor 
@@ -2127,7 +2132,7 @@ SFX B or ntia eor
 SFX B or ntiaque eor 
 SFX B or ntiane eor 
 SFX B or ntiave eor 
-SFX B or ndum eor # gérondif
+SFX B or ndum eor # gÃ©rondif
 SFX B or ndumque eor 
 SFX B or ndumne eor 
 SFX B or ndumve eor 
@@ -2192,7 +2197,7 @@ SFX B or ndarumque eor
 SFX B or ndarumne eor 
 SFX B or ndarumve eor 
 SFX B o o io 
-SFX B o s io # actif infectum personnel indicatif présent
+SFX B o s io # actif infectum personnel indicatif prÃ©sent
 SFX B o sque io 
 SFX B o sne io 
 SFX B o sve io 
@@ -2260,7 +2265,7 @@ SFX B o ent io
 SFX B o entque io 
 SFX B o entne io 
 SFX B o entve io 
-SFX B o am io # actif infectum personnel subjonctif présent
+SFX B o am io # actif infectum personnel subjonctif prÃ©sent
 SFX B o amque io 
 SFX B o amne io 
 SFX B o amve io 
@@ -2308,7 +2313,7 @@ SFX B io erent io
 SFX B io erentque io 
 SFX B io erentne io 
 SFX B io erentve io 
-SFX B io e io # actif infectum personnel impératif présent
+SFX B io e io # actif infectum personnel impÃ©ratif prÃ©sent
 SFX B io eque io 
 SFX B io ene io 
 SFX B io eve io 
@@ -2316,11 +2321,11 @@ SFX B io ite io
 SFX B io iteque io 
 SFX B io itene io 
 SFX B io iteve io 
-SFX B io ere io # actif infectum impersonnel infinitif présent
+SFX B io ere io # actif infectum impersonnel infinitif prÃ©sent
 SFX B io ereque io 
 SFX B io erene io 
 SFX B io ereve io 
-SFX B o endum io # gérondif
+SFX B o endum io # gÃ©rondif
 SFX B o endumque io 
 SFX B o endumne io 
 SFX B o endumve io 
@@ -2332,7 +2337,7 @@ SFX B o endo io
 SFX B o endoque io 
 SFX B o endone io 
 SFX B o endove io 
-SFX B o ens io # participe présent actif
+SFX B o ens io # participe prÃ©sent actif
 SFX B o ensque io 
 SFX B o ensne io 
 SFX B o ensve io 
@@ -2368,7 +2373,7 @@ SFX B o entia io
 SFX B o entiaque io 
 SFX B o entiane io 
 SFX B o entiave io 
-SFX B 0 r io # passif infectum personnel indicatif présent
+SFX B 0 r io # passif infectum personnel indicatif prÃ©sent
 SFX B 0 rque io 
 SFX B 0 rne io 
 SFX B 0 rve io 
@@ -2440,7 +2445,7 @@ SFX B o entur io
 SFX B o enturque io 
 SFX B o enturne io 
 SFX B o enturve io 
-SFX B o ar io # passif infectum personnel subjonctif présent
+SFX B o ar io # passif infectum personnel subjonctif prÃ©sent
 SFX B o arque io 
 SFX B o arne io 
 SFX B o arve io 
@@ -2553,7 +2558,7 @@ SFX B o endarumque io
 SFX B o endarumne io 
 SFX B o endarumve io 
 SFX B ior ior ior 
-SFX B ior eris ior # infectum personnel indicatif présent
+SFX B ior eris ior # infectum personnel indicatif prÃ©sent
 SFX B ior erisque ior 
 SFX B ior erisne ior 
 SFX B ior erisve ior 
@@ -2621,7 +2626,7 @@ SFX B ior ientur ior
 SFX B ior ienturque ior 
 SFX B ior ienturne ior 
 SFX B ior ienturve ior 
-SFX B ior iar ior # infectum personnel subjonctif présent
+SFX B ior iar ior # infectum personnel subjonctif prÃ©sent
 SFX B ior iarque ior 
 SFX B ior iarne ior 
 SFX B ior iarve ior 
@@ -2665,15 +2670,15 @@ SFX B ior erentur ior
 SFX B ior erenturque ior 
 SFX B ior erenturne ior 
 SFX B ior erenturve ior 
-SFX B ior ere ior # infectum personnel impératif présent
+SFX B ior ere ior # infectum personnel impÃ©ratif prÃ©sent
 SFX B ior ereque ior 
 SFX B ior erene ior 
 SFX B ior ereve ior 
-SFX B ior i ior # infectum impersonnel infinitif présent
+SFX B ior i ior # infectum impersonnel infinitif prÃ©sent
 SFX B ior ique ior 
 SFX B ior ine ior 
 SFX B ior ive ior 
-SFX B or endum ior # gérondif
+SFX B or endum ior # gÃ©rondif
 SFX B or endumque ior 
 SFX B or endumne ior 
 SFX B or endumve ior 
@@ -2685,7 +2690,7 @@ SFX B or endo ior
 SFX B or endoque ior 
 SFX B or endone ior 
 SFX B or endove ior 
-SFX B or ens ior # participe présent actif
+SFX B or ens ior # participe prÃ©sent actif
 SFX B or ensque ior 
 SFX B or ensne ior 
 SFX B or ensve ior 
@@ -2774,7 +2779,7 @@ SFX B or endarumque ior
 SFX B or endarumne ior 
 SFX B or endarumve ior 
 SFX B o o [^ei]o 
-SFX B o is [^ei]o # actif infectum personnel indicatif présent
+SFX B o is [^ei]o # actif infectum personnel indicatif prÃ©sent
 SFX B o isque [^ei]o 
 SFX B o isne [^ei]o 
 SFX B o isve [^ei]o 
@@ -2842,7 +2847,7 @@ SFX B o ent [^ei]o
 SFX B o entque [^ei]o 
 SFX B o entne [^ei]o 
 SFX B o entve [^ei]o 
-SFX B o am [^ei]o # actif infectum personnel subjonctif présent
+SFX B o am [^ei]o # actif infectum personnel subjonctif prÃ©sent
 SFX B o amque [^ei]o 
 SFX B o amne [^ei]o 
 SFX B o amve [^ei]o 
@@ -2890,7 +2895,7 @@ SFX B o erent [^ei]o
 SFX B o erentque [^ei]o 
 SFX B o erentne [^ei]o 
 SFX B o erentve [^ei]o 
-SFX B o e [^ei]o # actif infectum personnel impératif présent
+SFX B o e [^ei]o # actif infectum personnel impÃ©ratif prÃ©sent
 SFX B o eque [^ei]o 
 SFX B o ene [^ei]o 
 SFX B o eve [^ei]o 
@@ -2898,11 +2903,11 @@ SFX B o ite [^ei]o
 SFX B o iteque [^ei]o 
 SFX B o itene [^ei]o 
 SFX B o iteve [^ei]o 
-SFX B o ere [^ei]o # actif infectum impersonnel infinitif présent
+SFX B o ere [^ei]o # actif infectum impersonnel infinitif prÃ©sent
 SFX B o ereque [^ei]o 
 SFX B o erene [^ei]o 
 SFX B o ereve [^ei]o 
-SFX B o endum [^ei]o # gérondif
+SFX B o endum [^ei]o # gÃ©rondif
 SFX B o endumque [^ei]o 
 SFX B o endumne [^ei]o 
 SFX B o endumve [^ei]o 
@@ -2914,7 +2919,7 @@ SFX B o endo [^ei]o
 SFX B o endoque [^ei]o 
 SFX B o endone [^ei]o 
 SFX B o endove [^ei]o 
-SFX B o ens [^ei]o # participe présent actif
+SFX B o ens [^ei]o # participe prÃ©sent actif
 SFX B o ensque [^ei]o 
 SFX B o ensne [^ei]o 
 SFX B o ensve [^ei]o 
@@ -2950,7 +2955,7 @@ SFX B o entia [^ei]o
 SFX B o entiaque [^ei]o 
 SFX B o entiane [^ei]o 
 SFX B o entiave [^ei]o 
-SFX B 0 r [^ei]o # passif infectum personnel indicatif présent
+SFX B 0 r [^ei]o # passif infectum personnel indicatif prÃ©sent
 SFX B 0 rque [^ei]o 
 SFX B 0 rne [^ei]o 
 SFX B 0 rve [^ei]o 
@@ -3022,7 +3027,7 @@ SFX B o entur [^ei]o
 SFX B o enturque [^ei]o 
 SFX B o enturne [^ei]o 
 SFX B o enturve [^ei]o 
-SFX B o ar [^ei]o # passif infectum personnel subjonctif présent
+SFX B o ar [^ei]o # passif infectum personnel subjonctif prÃ©sent
 SFX B o arque [^ei]o 
 SFX B o arne [^ei]o 
 SFX B o arve [^ei]o 
@@ -3135,7 +3140,7 @@ SFX B o endarumque [^ei]o
 SFX B o endarumne [^ei]o 
 SFX B o endarumve [^ei]o 
 SFX B or or [^ei]or 
-SFX B or eris [^ei]or # infectum personnel indicatif présent
+SFX B or eris [^ei]or # infectum personnel indicatif prÃ©sent
 SFX B or erisque [^ei]or 
 SFX B or erisne [^ei]or 
 SFX B or erisve [^ei]or 
@@ -3203,7 +3208,7 @@ SFX B or entur [^ei]or
 SFX B or enturque [^ei]or 
 SFX B or enturne [^ei]or 
 SFX B or enturve [^ei]or 
-SFX B or ar [^ei]or # personnel subjonctif présent
+SFX B or ar [^ei]or # personnel subjonctif prÃ©sent
 SFX B or arque [^ei]or 
 SFX B or arne [^ei]or 
 SFX B or arve [^ei]or 
@@ -3311,7 +3316,7 @@ SFX B or endarum [^ei]or
 SFX B or endarumque [^ei]or 
 SFX B or endarumne [^ei]or 
 SFX B or endarumve [^ei]or 
-SFX B or endum [^ei]or # gérondif
+SFX B or endum [^ei]or # gÃ©rondif
 SFX B or endumque [^ei]or 
 SFX B or endumne [^ei]or 
 SFX B or endumve [^ei]or 
@@ -3323,7 +3328,7 @@ SFX B or endo [^ei]or
 SFX B or endoque [^ei]or 
 SFX B or endone [^ei]or 
 SFX B or endove [^ei]or 
-SFX B or ens [^ei]or # participe présent
+SFX B or ens [^ei]or # participe prÃ©sent
 SFX B or ensque [^ei]or 
 SFX B or ensne [^ei]or 
 SFX B or ensve [^ei]or 
@@ -3413,7 +3418,7 @@ SFX B or endarumne [^ei]or
 SFX B or endarumve [^ei]or 
 SFX C Y 630
 SFX C o o o 
-SFX C o s o # actif infectum personnel indicatif présent
+SFX C o s o # actif infectum personnel indicatif prÃ©sent
 SFX C o sque o 
 SFX C o sne o 
 SFX C o sve o 
@@ -3481,7 +3486,7 @@ SFX C o ent o
 SFX C o entque o 
 SFX C o entne o 
 SFX C o entve o 
-SFX C o am o # actif infectum personnel subjonctif présent
+SFX C o am o # actif infectum personnel subjonctif prÃ©sent
 SFX C o amque o 
 SFX C o amne o 
 SFX C o amve o 
@@ -3529,11 +3534,11 @@ SFX C o rent o
 SFX C o rentque o 
 SFX C o rentne o 
 SFX C o rentve o 
-SFX C o ire o # actif infectum impersonnel infinitif présent
+SFX C o ire o # actif infectum impersonnel infinitif prÃ©sent
 SFX C o ireque o 
 SFX C o irene o 
 SFX C o ireve o 
-SFX C o endum o # gérondif
+SFX C o endum o # gÃ©rondif
 SFX C o endumque o 
 SFX C o endumne o 
 SFX C o endumve o 
@@ -3545,7 +3550,7 @@ SFX C o endo o
 SFX C o endoque o 
 SFX C o endone o 
 SFX C o endove o 
-SFX C o ens o # participe présent actif
+SFX C o ens o # participe prÃ©sent actif
 SFX C o ensque o 
 SFX C o ensne o 
 SFX C o ensve o 
@@ -3581,7 +3586,7 @@ SFX C o entia o
 SFX C o entiaque o 
 SFX C o entiane o 
 SFX C o entiave o 
-SFX C 0 r o # passif infectum personnel indicatif présent
+SFX C 0 r o # passif infectum personnel indicatif prÃ©sent
 SFX C 0 rque o 
 SFX C 0 rne o 
 SFX C 0 rve o 
@@ -3653,7 +3658,7 @@ SFX C o entur o
 SFX C o enturque o 
 SFX C o enturne o 
 SFX C o enturve o 
-SFX C o ar o # passif infectum personnel subjonctif présent
+SFX C o ar o # passif infectum personnel subjonctif prÃ©sent
 SFX C o arque o 
 SFX C o arne o 
 SFX C o arve o 
@@ -3701,7 +3706,7 @@ SFX C o rentur o
 SFX C o renturque o 
 SFX C o renturne o 
 SFX C o renturve o 
-SFX C o re o # passif infectum impératif
+SFX C o re o # passif infectum impÃ©ratif
 SFX C o reque o 
 SFX C o rene o 
 SFX C o reve o 
@@ -3766,7 +3771,7 @@ SFX C o endarumque o
 SFX C o endarumne o 
 SFX C o endarumve o 
 SFX C or or or 
-SFX C or ris or # passif infectum personnel indicatif présent
+SFX C or ris or # passif infectum personnel indicatif prÃ©sent
 SFX C or risque or 
 SFX C or risne or 
 SFX C or risve or 
@@ -3834,7 +3839,7 @@ SFX C or entur or
 SFX C or enturque or 
 SFX C or enturne or 
 SFX C or enturve or 
-SFX C or ar or # passif infectum personnel subjonctif présent
+SFX C or ar or # passif infectum personnel subjonctif prÃ©sent
 SFX C or arque or 
 SFX C or arne or 
 SFX C or arve or 
@@ -3882,7 +3887,7 @@ SFX C or rentur or
 SFX C or renturque or 
 SFX C or renturne or 
 SFX C or renturve or 
-SFX C or re or # passif infectum impératif
+SFX C or re or # passif infectum impÃ©ratif
 SFX C or reque or 
 SFX C or rene or 
 SFX C or reve or 
@@ -3942,7 +3947,7 @@ SFX C or endarum or
 SFX C or endarumque or 
 SFX C or endarumne or 
 SFX C or endarumve or 
-SFX C or endum or # gérondif
+SFX C or endum or # gÃ©rondif
 SFX C or endumque or 
 SFX C or endumne or 
 SFX C or endumve or 
@@ -3954,7 +3959,7 @@ SFX C or endo or
 SFX C or endoque or 
 SFX C or endone or 
 SFX C or endove or 
-SFX C or ens or # participe présent actif
+SFX C or ens or # participe prÃ©sent actif
 SFX C or ensque or 
 SFX C or ensne or 
 SFX C or ensve or 
@@ -4072,7 +4077,7 @@ SFX P i ereque i
 SFX P i erene i 
 SFX P i ereve i 
 SFX P vi vi vi 
-SFX P vi i vi # actif perfectum personnel indicatif parfait contracté
+SFX P vi i vi # actif perfectum personnel indicatif parfait contractÃ©
 SFX P vi ique vi 
 SFX P vi ine vi 
 SFX P vi ive vi 
@@ -4120,7 +4125,7 @@ SFX P i erant i
 SFX P i erantque i 
 SFX P i erantne i 
 SFX P i erantve i 
-SFX P vi ram vi # actif perfectum personnel indicatif pqp contracté
+SFX P vi ram vi # actif perfectum personnel indicatif pqp contractÃ©
 SFX P vi ramque vi 
 SFX P vi ramne vi 
 SFX P vi ramve vi 
@@ -4168,7 +4173,7 @@ SFX P i erint i
 SFX P i erintque i 
 SFX P i erintne i 
 SFX P i erintve i 
-SFX P vi ro vi # actif perfectum personnel indicatif futur contracté
+SFX P vi ro vi # actif perfectum personnel indicatif futur contractÃ©
 SFX P vi roque vi 
 SFX P vi rone vi 
 SFX P vi rove vi 
@@ -4196,7 +4201,7 @@ SFX P i erim i # actif perfectum personnel subjonctif parfait
 SFX P i erimque i 
 SFX P i erimne i 
 SFX P i erimve i 
-SFX P vi rim vi # actif perfectum personnel subjonctif parfait contracté
+SFX P vi rim vi # actif perfectum personnel subjonctif parfait contractÃ©
 SFX P vi rimque vi 
 SFX P vi rimne vi 
 SFX P vi rimve vi 
@@ -4224,7 +4229,7 @@ SFX P i issent i
 SFX P i issentque i 
 SFX P i issentne i 
 SFX P i issentve i 
-SFX P vi ssem vi # actif perfectum personnel subjonctif pqp contracté
+SFX P vi ssem vi # actif perfectum personnel subjonctif pqp contractÃ©
 SFX P vi ssemque vi 
 SFX P vi ssemne vi 
 SFX P vi ssemve vi 
@@ -4252,7 +4257,7 @@ SFX P i isse i # actif perfectum impersonnel infinitif
 SFX P i isseque i 
 SFX P i issene i 
 SFX P i isseve i 
-SFX P vi sse vi # actif perfectum impersonnel infinitif contracté
+SFX P vi sse vi # actif perfectum impersonnel infinitif contractÃ©
 SFX P vi sseque vi 
 SFX P vi ssene vi 
 SFX P vi sseve vi 
@@ -4284,7 +4289,7 @@ SFX P o avere o
 SFX P o avereque o 
 SFX P o averene o 
 SFX P o avereve o 
-SFX P o ai o # actif perfectum personnel indicatif parfait contracté
+SFX P o ai o # actif perfectum personnel indicatif parfait contractÃ©
 SFX P o aque o 
 SFX P o ane o 
 SFX P o ave o 
@@ -4336,7 +4341,7 @@ SFX P o averant o
 SFX P o averantque o 
 SFX P o averantne o 
 SFX P o averantve o 
-SFX P o aram o # actif perfectum personnel indicatif pqp contracté
+SFX P o aram o # actif perfectum personnel indicatif pqp contractÃ©
 SFX P o aramque o 
 SFX P o aramne o 
 SFX P o aramve o 
@@ -4384,7 +4389,7 @@ SFX P o averint o
 SFX P o averintque o 
 SFX P o averintne o 
 SFX P o averintve o 
-SFX P o aro o # actif perfectum personnel indicatif futur contracté
+SFX P o aro o # actif perfectum personnel indicatif futur contractÃ©
 SFX P o aroque o 
 SFX P o arone o 
 SFX P o arove o 
@@ -4412,7 +4417,7 @@ SFX P o averim o # actif perfectum personnel subjonctif parfait
 SFX P o averimque o 
 SFX P o averimne o 
 SFX P o averimve o 
-SFX P o arim o # actif perfectum personnel subjonctif parfait contracté
+SFX P o arim o # actif perfectum personnel subjonctif parfait contractÃ©
 SFX P o arimque o 
 SFX P o arimne o 
 SFX P o arimve o 
@@ -4440,7 +4445,7 @@ SFX P o avissent o
 SFX P o avissentque o 
 SFX P o avissentne o 
 SFX P o avissentve o 
-SFX P o assem o # actif perfectum personnel subjonctif pqp contracté
+SFX P o assem o # actif perfectum personnel subjonctif pqp contractÃ©
 SFX P o assemque o 
 SFX P o assemne o 
 SFX P o assemve o 
@@ -4468,7 +4473,7 @@ SFX P o avisse o # actif perfectum impersonnel infinitif
 SFX P o avisseque o 
 SFX P o avissene o 
 SFX P o avisseve o 
-SFX P o asse o # actif perfectum impersonnel infinitif contracté
+SFX P o asse o # actif perfectum impersonnel infinitif contractÃ©
 SFX P o asseque o 
 SFX P o assene o 
 SFX P o asseve o 

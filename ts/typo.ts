@@ -31,6 +31,8 @@ interface HunspellFlags {
 	NOSUGGEST?: boolean;
 	PRIORITYSUGGEST?: boolean;
 	NEEDAFFIX?: boolean;
+	ICONV?: boolean;
+	OCONV?: boolean;
 }
 
 interface TypoSettings {
@@ -55,6 +57,18 @@ interface AffixRule {
 	type: string;
 	combineable: boolean;
 	entries: AffixEntry[];
+}
+
+interface ConversionEntry {
+	pattern: string;
+	replacement: string;
+	atStart: boolean;
+	atEnd: boolean;
+}
+
+interface ConversionTable {
+	regex: RegExp;
+	replacements: string[];
 }
 
 function runGenSync<T>(gen: Generator<void, T, void>): T {
@@ -138,6 +152,9 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 	this.compoundRuleCodes = {};
 
 	this.replacementTable = [];
+
+	this.inputConversionTable = null;
+	this.outputConversionTable = null;
 
 	this.flags = settings.flags || {};
 
@@ -381,6 +398,9 @@ Typo.prototype = {
 	_parseAFF : function (data: string): HashMap {
 		let rules: HashMap = {};
 
+		const inputConversionEntries: ConversionEntry[] = [];
+		const outputConversionEntries: ConversionEntry[] = [];
+
 		let line, subline, numEntries, lineParts;
 		let i, j, _len, _jlen;
 
@@ -471,6 +491,17 @@ Typo.prototype = {
 					this.replacementTable.push([ lineParts[1], lineParts[2] ]);
 				}
 			}
+			else if (ruleType === "ICONV" || ruleType === "OCONV") {
+				// Input (ICONV) and output (OCONV) conversion tables, e.g. "ICONV Æ AE".
+				// The table's header line ("ICONV 2") has only two parts and is skipped.
+				lineParts = line.split(/\s+/);
+
+				if (lineParts.length === 3) {
+					const entries = (ruleType === "ICONV") ? inputConversionEntries : outputConversionEntries;
+
+					entries.push(this._parseConversionEntry(lineParts[1], lineParts[2]));
+				}
+			}
 			else {
 				// ONLYINCOMPOUND
 				// COMPOUNDMIN
@@ -482,7 +513,110 @@ Typo.prototype = {
 			}
 		}
 
+		this.inputConversionTable = this._compileConversionTable(inputConversionEntries);
+		this.outputConversionTable = this._compileConversionTable(outputConversionEntries);
+
 		return rules;
+	},
+
+	/**
+	 * Parses one ICONV/OCONV table entry.
+	 *
+	 * As in Hunspell, a leading underscore anchors the pattern to the start of the
+	 * word, a trailing underscore anchors it to the end of the word, and any other
+	 * underscore stands for a space.
+	 *
+	 * @param {string} pattern The text to look for.
+	 * @param {string} replacement The text to replace it with.
+	 * @returns {ConversionEntry}
+	 */
+
+	_parseConversionEntry : function (pattern: string, replacement: string): ConversionEntry {
+		let atStart = false;
+		let atEnd = false;
+
+		if (pattern.length > 1 && pattern[0] === "_") {
+			atStart = true;
+			pattern = pattern.substring(1);
+		}
+
+		if (pattern.length > 1 && pattern[pattern.length - 1] === "_") {
+			atEnd = true;
+			pattern = pattern.substring(0, pattern.length - 1);
+		}
+
+		return {
+			pattern : pattern.replace(/_/g, " "),
+			replacement : replacement.replace(/_/g, " "),
+			atStart : atStart,
+			atEnd : atEnd
+		};
+	},
+
+	/**
+	 * Compiles the entries of an ICONV/OCONV table into a single regular expression.
+	 *
+	 * Longer patterns are listed first so that, as in Hunspell, the longest match
+	 * at each position wins. Each entry gets its own capture group, which is how
+	 * the replacement callback identifies the entry that matched.
+	 *
+	 * @param {ConversionEntry[]} entries The parsed table entries.
+	 * @returns {ConversionTable|null} The compiled table, or null if the table is empty.
+	 */
+
+	_compileConversionTable : function (entries: ConversionEntry[]): ConversionTable | null {
+		if (entries.length === 0) {
+			return null;
+		}
+
+		// Array.prototype.sort is stable, so entries with equally long patterns keep
+		// their order from the .aff file.
+		const sorted = entries.slice().sort(function (a: ConversionEntry, b: ConversionEntry): number {
+			return b.pattern.length - a.pattern.length;
+		});
+
+		const alternatives: string[] = [];
+		const replacements: string[] = [];
+
+		for (let i = 0, _len = sorted.length; i < _len; i++) {
+			const entry = sorted[i];
+			const escapedPattern = entry.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+			alternatives.push((entry.atStart ? "^" : "") + "(" + escapedPattern + ")" + (entry.atEnd ? "$" : ""));
+			replacements.push(entry.replacement);
+		}
+
+		return {
+			regex : new RegExp(alternatives.join("|"), "g"),
+			replacements : replacements
+		};
+	},
+
+	/**
+	 * Applies a compiled ICONV/OCONV conversion table to a word.
+	 *
+	 * @param {string} word The word to convert.
+	 * @param {ConversionTable|null} table The compiled conversion table to apply.
+	 * @returns {string} The converted word.
+	 */
+
+	_applyConversionTable : function (word: string, table: ConversionTable | null): string {
+		if (!table) {
+			return word;
+		}
+
+		const replacements = table.replacements;
+
+		return word.replace(table.regex, function (): string {
+			// The entry that matched is the one whose capture group is defined.
+			for (let i = 1, _len = replacements.length; i <= _len; i++) {
+				if (arguments[i] !== undefined) {
+					return replacements[i - 1];
+				}
+			}
+
+			return arguments[0];
+		});
 	},
 
 	/**
@@ -745,18 +879,39 @@ Typo.prototype = {
 			return false;
 		}
 
-		// Remove leading and trailing whitespace
-		const trimmedWord = aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+		// Remove leading and trailing whitespace, then apply the dictionary's input
+		// conversion table (ICONV).
+		const trimmedWord = this._applyConversionTable(aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, ''), this.inputConversionTable);
 
-		if (this.checkExact(trimmedWord)) {
+		return this._checkCaseVariants(trimmedWord);
+	},
+
+	/**
+	 * Checks whether a word or a capitalization variant exists in the current dictionary.
+	 *
+	 * Unlike check(), the word is used as-is: it is neither trimmed nor passed through
+	 * the input conversion table. suggest() uses this for its candidate words, which are
+	 * built from an already-converted word, so that the conversion isn't repeated for
+	 * every candidate.
+	 *
+	 * @param {string} word The word to check.
+	 * @returns {boolean}
+	 */
+
+	_checkCaseVariants : function (word: string): boolean {
+		if (!word) {
+			return false;
+		}
+
+		if (this.checkExact(word)) {
 			return true;
 		}
 
 		// The exact word is not in the dictionary.
-		if (trimmedWord.toUpperCase() === trimmedWord) {
+		if (word.toUpperCase() === word) {
 			// The word was supplied in all uppercase.
 			// Check for a capitalized form of the word.
-			const capitalizedWord = trimmedWord[0] + trimmedWord.substring(1).toLowerCase();
+			const capitalizedWord = word[0] + word.substring(1).toLowerCase();
 
 			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
@@ -768,15 +923,15 @@ Typo.prototype = {
 				return true;
 			}
 
-			if (this.checkExact(trimmedWord.toLowerCase())) {
+			if (this.checkExact(word.toLowerCase())) {
 				// The all-caps is a lowercase word spelled correctly.
 				return true;
 			}
 		}
 
-		const uncapitalizedWord = trimmedWord[0].toLowerCase() + trimmedWord.substring(1);
+		const uncapitalizedWord = word[0].toLowerCase() + word.substring(1);
 
-		if (uncapitalizedWord !== trimmedWord) {
+		if (uncapitalizedWord !== word) {
 			if (this.hasFlag(uncapitalizedWord, "KEEPCASE")) {
 				// Capitalization variants are not allowed for this word.
 				return false;
@@ -892,15 +1047,36 @@ Typo.prototype = {
 
 		if (this.check(word)) return [];
 
+		const self = this;
+
+		// Suggestions are built from the input-converted word (ICONV) and are
+		// passed through the output conversion table (OCONV) before being returned.
+		const convertedWord = this._applyConversionTable(word, this.inputConversionTable);
+
+		function outputConvert(suggestions: string[]): string[] {
+			const converted: string[] = [];
+
+			for (let i = 0, _len = suggestions.length; i < _len; i++) {
+				const suggestion = self._applyConversionTable(suggestions[i], self.outputConversionTable);
+
+				// Output conversion can map distinct suggestions onto the same string.
+				if (converted.indexOf(suggestion) === -1) {
+					converted.push(suggestion);
+				}
+			}
+
+			return converted;
+		}
+
 		// Check the replacement table.
 		for (let i = 0, _len = this.replacementTable.length; i < _len; i++) {
 			const replacementEntry = this.replacementTable[i];
 
-			if (word.indexOf(replacementEntry[0]) !== -1) {
-				const correctedWord = word.replace(replacementEntry[0], replacementEntry[1]);
+			if (convertedWord.indexOf(replacementEntry[0]) !== -1) {
+				const correctedWord = convertedWord.replace(replacementEntry[0], replacementEntry[1]);
 
-				if (this.check(correctedWord)) {
-					return [ correctedWord ];
+				if (this._checkCaseVariants(correctedWord)) {
+					return outputConvert([ correctedWord ]);
 				}
 			}
 		}
@@ -938,8 +1114,6 @@ Typo.prototype = {
 			}
 		}
 
-		const self = this;
-
 		/**
 		 * Returns a hash keyed by all of the strings that can be made by making a single edit to the word (or words in) `words`
 		 * The value of each entry is the number of unique ways that the resulting word can be made.
@@ -962,7 +1136,7 @@ Typo.prototype = {
 					if (s[1]) {
 						_edit = s[0] + s[1].substring(1);
 
-						if (!known_only || self.check(_edit)) {
+						if (!known_only || self._checkCaseVariants(_edit)) {
 							if (!(_edit in rv)) {
 								rv[_edit] = 1;
 							}
@@ -977,7 +1151,7 @@ Typo.prototype = {
 					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
 						_edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
 
-						if (!known_only || self.check(_edit)) {
+						if (!known_only || self._checkCaseVariants(_edit)) {
 							if (!(_edit in rv)) {
 								rv[_edit] = 1;
 							}
@@ -1004,7 +1178,7 @@ Typo.prototype = {
 							if (replacementLetter != s[1].substring(0,1)){
 								_edit = s[0] + replacementLetter + s[1].substring(1);
 
-								if (!known_only || self.check(_edit)) {
+								if (!known_only || self._checkCaseVariants(_edit)) {
 									if (!(_edit in rv)) {
 										rv[_edit] = 1;
 									}
@@ -1030,7 +1204,7 @@ Typo.prototype = {
 
 							_edit = s[0] + replacementLetter + s[1];
 
-							if (!known_only || self.check(_edit)) {
+							if (!known_only || self._checkCaseVariants(_edit)) {
 								if (!(_edit in rv)) {
 									rv[_edit] = 1;
 								}
@@ -1055,7 +1229,7 @@ Typo.prototype = {
 			let weighted_corrections = ed2;
 
 			for (let ed1word in ed1) {
-				if (!self.check(ed1word)) {
+				if (!self._checkCaseVariants(ed1word)) {
 					continue;
 				}
 
@@ -1136,7 +1310,7 @@ Typo.prototype = {
 		}
 
 		this.memoized[word] = {
-			'suggestions': correct(word),
+			'suggestions': outputConvert(correct(convertedWord)),
 			'limit': limit
 		};
 

@@ -57,12 +57,14 @@ function testDictionary(dict) {
 		equal(dict.check("  saxi  "), true);
 	});
 	
-	/*
-	test("Ligature", function () {
-		equal(dict.check("FILIAE"), true);
-		equal(dict.check("FILIÆ"), true);
+	test("Ligatures are expanded via the ICONV table before checking.", function () {
+		equal(dict.check("TERRAE"), true);
+		equal(dict.check("TERR\u00C6"), true);
+		equal(dict.check("terr\u00E6"), true);
+		equal(dict.check("Terr\u00E6"), true);
+		equal(dict.check("TERR\u00C6X"), false);
+		equal(dict.checkExact("terr\u00E6"), false);
 	});
-	*/
 }
 
 addEventListener( "load", run, false );

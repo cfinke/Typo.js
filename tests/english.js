@@ -232,6 +232,13 @@ function testDictionary(dict) {
 		delete dict.flags['PRIORITYSUGGEST'];
 		dict.dictionaryTable.get(priority_suggestion).pop();
 	} );
+
+	test("Typographic apostrophes are converted via the ICONV table before checking.", function () {
+		equal(dict.check("don't"), true);
+		equal(dict.check("don\u2019t"), true);
+		equal(dict.check("Don\u2019t"), true);
+		equal(dict.checkExact("don\u2019t"), false);
+	});
 }
 
 addEventListener( "load", run, false );

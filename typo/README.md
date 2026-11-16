@@ -145,6 +145,8 @@ The `.dic` file is stored as a map from stem to flag strings; affixed forms are 
 
 Before any of that, a word is tested against bitmaps of the two-character sequences that can start and end an accepted word (derived from the stems and affixes when the dictionary loads). Most of the hundreds of thousands of candidate strings that `suggest()` generates fail this test and are rejected without a single hash lookup.
 
+The first call to `suggest()` also builds a small Bloom filter of the prefixes of every stem. Removing a suffix from a candidate string leaves the start of a stem, so when the start of a candidate is not the start of any stem, the lookups for it are skipped. This matters most for dictionaries with thousands of suffixes, such as French, where each candidate would otherwise cost a dozen or more lookups.
+
 Demo
 ====
 There's a live demo of Typo.js at https://www.chrisfinke.com/files/typo-demo/ and a complete Node.js example file at https://github.com/cfinke/Typo.js/blob/master/examples/node/index.js

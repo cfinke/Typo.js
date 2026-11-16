@@ -84,6 +84,8 @@ interface AffixGroup {
 	add: string;
 	strip: string;
 	entries: AffixEntry[];
+	/** Suffix groups only: whether another suffix carries one of these entries' flags on. */
+	continued: boolean;
 }
 
 /** A node of a trie over the text that affixes add, keyed by character code. */
@@ -435,6 +437,11 @@ export class Typo {
 	private startWild = new Uint8Array(128);
 	private endWild = new Uint8Array(128);
 	private pruneStart = false;
+	/** See buildStemPrefixIndex(). Null until suggest() first needs it. */
+	private stemPrefixBits: Uint8Array | null = null;
+	private stemPrefixMask = 0;
+	/** Whether the last hasSuffixedForm() call found any suffix worth looking a stem up for. */
+	private suffixLookupTried = false;
 	private inputConversion: ConversionTable | null = null;
 	private outputConversion: ConversionTable | null = null;
 	private alphabetLetters: string[] = [];
@@ -1140,7 +1147,7 @@ export class Typo {
 				let group = groups.find((candidate) => candidate.strip === entry.strip);
 
 				if (!group) {
-					group = { add: entry.add, strip: entry.strip, entries: [] };
+					group = { add: entry.add, strip: entry.strip, entries: [], continued: false };
 					groups.push(group);
 					(rule.type === "SFX" ? this.suffixGroups : this.prefixGroups).push(group);
 				}
@@ -1160,6 +1167,10 @@ export class Typo {
 					}
 				}
 			}
+		}
+
+		for (const group of this.suffixGroups) {
+			group.continued = group.entries.some((entry) => this.continuationIndex.has(entry.flag));
 		}
 
 		// Suffixes are looked up from the end of a word, so their trie is keyed by the
@@ -1515,15 +1526,18 @@ export class Typo {
 			return false;
 		}
 
-		if (this.isAcceptedStem(word)) {
+		// How much of the start of the word could be the start of a stem; see stemPrefixDepth().
+		const depth = this.stemPrefixDepth(word);
+
+		if (depth >= word.length && this.isAcceptedStem(word)) {
 			return true;
 		}
 
-		if (this.hasSuffixedForm(word, EMPTY_FLAGS, false)) {
+		if (this.hasSuffixedForm(word, EMPTY_FLAGS, false, depth)) {
 			return true;
 		}
 
-		if (this.hasPrefixedForm(word)) {
+		if (this.hasPrefixedForm(word, depth, this.suffixLookupTried)) {
 			return true;
 		}
 
@@ -1648,10 +1662,13 @@ export class Typo {
 	 *                 continuation flags (e.g. the flag of a stripped prefix).
 	 * @param cross    Whether only cross-product suffixes may be used (set when a prefix
 	 *                 has been stripped).
+	 * @param depth    stemPrefixDepth(word).
 	 */
-	private hasSuffixedForm(word: string, required: readonly string[], cross: boolean): boolean {
+	private hasSuffixedForm(word: string, required: readonly string[], cross: boolean, depth: number): boolean {
 		const length = word.length;
 		let node: TrieNode | undefined = this.suffixTrie;
+
+		this.suffixLookupTried = false;
 
 		// Walk the trie of reversed suffixes from the end of the word; every node with
 		// groups marks a suffix that the word ends with.
@@ -1659,13 +1676,28 @@ export class Typo {
 			const groups = node.groups;
 
 			if (groups !== null) {
-				const base = stripped === 0 ? word : word.substring(0, length - stripped);
+				// What is left when the suffix is removed starts the stem, so the stem can only
+				// be in the dictionary if that much of the word is the start of some stem.
+				const baseLength = length - stripped;
+				const direct = baseLength <= depth;
+				let base: string | null = null;
 
 				for (let g = 0; g < groups.length; g++) {
 					const group = groups[g];
+
+					// Otherwise the word can only be a form of a suffix that this one continues.
+					if (!direct && !group.continued) {
+						continue;
+					}
+
+					if (base === null) {
+						base = stripped === 0 ? word : word.substring(0, baseLength);
+						this.suffixLookupTried = true;
+					}
+
 					const stem = group.strip ? base + group.strip : base;
 
-					if (stem && this.suffixGroupMatches(group, stem, required, cross)) {
+					if (stem && this.suffixGroupMatches(group, stem, required, cross, direct, baseLength, depth)) {
 						return true;
 					}
 				}
@@ -1681,9 +1713,15 @@ export class Typo {
 		return false;
 	}
 
-	/** Whether one of a group's suffixes, removed from the word, leaves a stem (or a suffixed stem). */
-	private suffixGroupMatches(group: AffixGroup, stem: string, required: readonly string[], cross: boolean): boolean {
-		const flagSets = this.dictionaryTable.get(stem);
+	/**
+	 * Whether one of a group's suffixes, removed from the word, leaves a stem (or a suffixed stem).
+	 *
+	 * @param direct     Whether the stem itself may be in the dictionary (see hasSuffixedForm()).
+	 * @param baseLength How many characters of the stem come from the start of the word.
+	 * @param depth      stemPrefixDepth() of the word.
+	 */
+	private suffixGroupMatches(group: AffixGroup, stem: string, required: readonly string[], cross: boolean, direct: boolean, baseLength: number, depth: number): boolean {
+		const flagSets = direct ? this.dictionaryTable.get(stem) : undefined;
 		const entries = group.entries;
 
 		for (let e = 0; e < entries.length; e++) {
@@ -1713,7 +1751,7 @@ export class Typo {
 				return true;
 			}
 
-			if (continuers !== undefined && this.hasContinuedForm(stem, rest, cross, continuers)) {
+			if (continuers !== undefined && this.hasContinuedForm(stem, rest, cross, continuers, baseLength, depth)) {
 				return true;
 			}
 		}
@@ -1724,8 +1762,12 @@ export class Typo {
 	/**
 	 * Whether the (already suffix-stripped) word can be produced by one of the given
 	 * suffixes, all of which carry the stripped suffix's flag as a continuation flag.
+	 *
+	 * @param baseLength How many characters at the start of the word come from the start of
+	 *                   the word that is being checked.
+	 * @param depth      stemPrefixDepth() of the word that is being checked.
 	 */
-	private hasContinuedForm(word: string, required: readonly string[], cross: boolean, continuers: AffixEntry[]): boolean {
+	private hasContinuedForm(word: string, required: readonly string[], cross: boolean, continuers: AffixEntry[], baseLength: number, depth: number): boolean {
 		const length = word.length;
 
 		for (let i = 0; i < continuers.length; i++) {
@@ -1738,6 +1780,12 @@ export class Typo {
 			const addLength = entry.add.length;
 
 			if (addLength > 0 && !word.endsWith(entry.add)) {
+				continue;
+			}
+
+			// The stem starts with what is left of the original word once both suffixes are
+			// removed, so that much of the original word has to be the start of some stem.
+			if (Math.min(length - addLength, baseLength) > depth) {
 				continue;
 			}
 
@@ -1788,8 +1836,14 @@ export class Typo {
 		return rest === null ? required : rest;
 	}
 
-	/** Whether the word can be produced by adding a prefix, optionally plus suffixes, to a stem. */
-	private hasPrefixedForm(word: string): boolean {
+	/**
+	 * Whether the word can be produced by adding a prefix, optionally plus suffixes, to a stem.
+	 *
+	 * @param depth         stemPrefixDepth(word).
+	 * @param suffixesTried Whether looking for a suffix on the word itself got as far as
+	 *                      looking a stem up.
+	 */
+	private hasPrefixedForm(word: string, depth: number, suffixesTried: boolean): boolean {
 		const length = word.length;
 		let node: TrieNode | undefined = this.prefixTrie;
 
@@ -1803,7 +1857,11 @@ export class Typo {
 					const group = groups[g];
 					const rest = group.strip ? group.strip + base : base;
 
-					if (rest && this.prefixGroupMatches(group, rest)) {
+					// A prefix that neither adds nor strips anything leaves the word as it was, so
+					// what is already known about the word's suffixes still holds.
+					const unchanged = stripped === 0 && !group.strip;
+
+					if (rest && this.prefixGroupMatches(group, rest, unchanged ? depth : this.stemPrefixDepth(rest), unchanged ? suffixesTried : true)) {
 						return true;
 					}
 				}
@@ -1819,8 +1877,16 @@ export class Typo {
 		return false;
 	}
 
-	private prefixGroupMatches(group: AffixGroup, rest: string): boolean {
-		const flagSets = this.dictionaryTable.get(rest);
+	/**
+	 * Whether one of a group's prefixes, removed from the word, leaves a stem (or a suffixed stem).
+	 *
+	 * @param rest          The word without the prefix.
+	 * @param depth         stemPrefixDepth(rest).
+	 * @param suffixesTried False if it is already known that no suffix on `rest` is worth
+	 *                      looking a stem up for, which rules out every suffixed form.
+	 */
+	private prefixGroupMatches(group: AffixGroup, rest: string, depth: number, suffixesTried: boolean): boolean {
+		const flagSets = depth >= rest.length ? this.dictionaryTable.get(rest) : undefined;
 		const entries = group.entries;
 		let requiredFlags: string[] | null = null;
 
@@ -1835,6 +1901,10 @@ export class Typo {
 				return true;
 			}
 
+			if (!suffixesTried) {
+				continue;
+			}
+
 			// Prefix and suffix on the same stem (cross product). The prefix's flag may be
 			// carried by the suffix's continuation flags instead of the stem.
 			if (entry.crossProduct) {
@@ -1842,13 +1912,13 @@ export class Typo {
 					requiredFlags = [entry.flag];
 				}
 
-				if (this.hasSuffixedForm(rest, requiredFlags, true)) {
+				if (this.hasSuffixedForm(rest, requiredFlags, true, depth)) {
 					return true;
 				}
 			}
 
 			// A prefix's continuation flags allow suffixes that the stem itself is not flagged with.
-			if (entry.continuation && this.hasSuffixGrantedByPrefix(rest, entry)) {
+			if (entry.continuation && this.hasSuffixGrantedByPrefix(rest, entry, depth)) {
 				return true;
 			}
 		}
@@ -1860,14 +1930,15 @@ export class Typo {
 	 * Whether the word (with a prefix already stripped) is a stem that takes the prefix,
 	 * plus a suffix named by the prefix's continuation flags.
 	 */
-	private hasSuffixGrantedByPrefix(word: string, prefix: AffixEntry): boolean {
+	private hasSuffixGrantedByPrefix(word: string, prefix: AffixEntry, depth: number): boolean {
 		const length = word.length;
 		let node: TrieNode | undefined = this.suffixTrie;
 
 		for (let stripped = 0; node !== undefined; stripped++) {
 			const groups = node.groups;
 
-			if (groups !== null) {
+			// The stem starts with what is left of the word, so that has to start some stem.
+			if (groups !== null && length - stripped <= depth) {
 				const base = stripped === 0 ? word : word.substring(0, length - stripped);
 
 				for (let g = 0; g < groups.length; g++) {
@@ -1986,6 +2057,88 @@ export class Typo {
 	/* --------------------------------------------------------------------------------------------
 	 * Pruning index
 	 * ------------------------------------------------------------------------------------------ */
+
+	/**
+	 * Records every prefix of every stem in a Bloom filter, so that stemPrefixDepth() can
+	 * tell how much of the start of a word could be the start of a stem.
+	 *
+	 * suggest() checks a very large number of strings that are not words. Removing a suffix
+	 * from one of them leaves the start of a stem, and each stem that could be has to be
+	 * looked up; in a dictionary with many suffixes that is many lookups for every string.
+	 * Most of those strings stop looking like any stem after a few characters, which rules
+	 * the lookups out without making them.
+	 *
+	 * The filter is only built when suggest() first needs it; without it, every lookup is made.
+	 */
+	private buildStemPrefixIndex(): void {
+		let prefixes = 0;
+
+		for (const stem of this.dictionaryTable.keys()) {
+			prefixes += stem.length;
+		}
+
+		// At least 8 bits per prefix, with two bits set for each.
+		let size = 1 << 16;
+
+		while (size < prefixes * 8 && size < (1 << 30)) {
+			size <<= 1;
+		}
+
+		const bits = new Uint8Array(size >> 3);
+		const mask = size - 1;
+
+		for (const stem of this.dictionaryTable.keys()) {
+			let hash = 0;
+
+			for (let i = 0; i < stem.length; i++) {
+				hash = Math.imul(hash ^ stem.charCodeAt(i), 0x01000193) + 0x9e3779b9 | 0;
+
+				const first = hash & mask;
+				const second = (Math.imul(hash, 0x85ebca6b) >>> 7) & mask;
+
+				bits[first >> 3] |= 1 << (first & 7);
+				bits[second >> 3] |= 1 << (second & 7);
+			}
+		}
+
+		this.stemPrefixBits = bits;
+		this.stemPrefixMask = mask;
+	}
+
+	/**
+	 * How many characters at the start of the word are (almost certainly) the start of some
+	 * stem. A longer start of the word is definitely not the start of any stem. Without the
+	 * filter from buildStemPrefixIndex(), this is the length of the word, which rules nothing out.
+	 */
+	private stemPrefixDepth(word: string): number {
+		const bits = this.stemPrefixBits;
+		const length = word.length;
+
+		if (bits === null) {
+			return length;
+		}
+
+		const mask = this.stemPrefixMask;
+		let hash = 0;
+
+		for (let i = 0; i < length; i++) {
+			hash = Math.imul(hash ^ word.charCodeAt(i), 0x01000193) + 0x9e3779b9 | 0;
+
+			const first = hash & mask;
+
+			if ((bits[first >> 3] & (1 << (first & 7))) === 0) {
+				return i;
+			}
+
+			const second = (Math.imul(hash, 0x85ebca6b) >>> 7) & mask;
+
+			if ((bits[second >> 3] & (1 << (second & 7))) === 0) {
+				return i;
+			}
+		}
+
+		return length;
+	}
 
 	/**
 	 * Records the first and last two characters of every string the dictionary can accept,
@@ -2189,6 +2342,7 @@ export class Typo {
 		}
 
 		this.pruneStart = pruneStart;
+		this.stemPrefixBits = null;
 	}
 
 	/* --------------------------------------------------------------------------------------------
@@ -2339,6 +2493,10 @@ export class Typo {
 
 	private suggestFromEdits(word: string, limit: number): string[] {
 		this.ensureAlphabet();
+
+		if (this.stemPrefixBits === null) {
+			this.buildStemPrefixIndex();
+		}
 
 		// Candidate words are checked many times over; cache the results for this call.
 		const knownCache = new Map<string, boolean>();

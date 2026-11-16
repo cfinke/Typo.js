@@ -122,6 +122,11 @@ declare class Typo {
     private startWild;
     private endWild;
     private pruneStart;
+    /** See buildStemPrefixIndex(). Null until suggest() first needs it. */
+    private stemPrefixBits;
+    private stemPrefixMask;
+    /** Whether the last hasSuffixedForm() call found any suffix worth looking a stem up for. */
+    private suffixLookupTried;
     private inputConversion;
     private outputConversion;
     private alphabetLetters;
@@ -257,19 +262,44 @@ declare class Typo {
      *                 continuation flags (e.g. the flag of a stripped prefix).
      * @param cross    Whether only cross-product suffixes may be used (set when a prefix
      *                 has been stripped).
+     * @param depth    stemPrefixDepth(word).
      */
     private hasSuffixedForm;
-    /** Whether one of a group's suffixes, removed from the word, leaves a stem (or a suffixed stem). */
+    /**
+     * Whether one of a group's suffixes, removed from the word, leaves a stem (or a suffixed stem).
+     *
+     * @param direct     Whether the stem itself may be in the dictionary (see hasSuffixedForm()).
+     * @param baseLength How many characters of the stem come from the start of the word.
+     * @param depth      stemPrefixDepth() of the word.
+     */
     private suffixGroupMatches;
     /**
      * Whether the (already suffix-stripped) word can be produced by one of the given
      * suffixes, all of which carry the stripped suffix's flag as a continuation flag.
+     *
+     * @param baseLength How many characters at the start of the word come from the start of
+     *                   the word that is being checked.
+     * @param depth      stemPrefixDepth() of the word that is being checked.
      */
     private hasContinuedForm;
     /** The required flags that an affix's continuation flags do not supply. */
     private flagsNotCarried;
-    /** Whether the word can be produced by adding a prefix, optionally plus suffixes, to a stem. */
+    /**
+     * Whether the word can be produced by adding a prefix, optionally plus suffixes, to a stem.
+     *
+     * @param depth         stemPrefixDepth(word).
+     * @param suffixesTried Whether looking for a suffix on the word itself got as far as
+     *                      looking a stem up.
+     */
     private hasPrefixedForm;
+    /**
+     * Whether one of a group's prefixes, removed from the word, leaves a stem (or a suffixed stem).
+     *
+     * @param rest          The word without the prefix.
+     * @param depth         stemPrefixDepth(rest).
+     * @param suffixesTried False if it is already known that no suffix on `rest` is worth
+     *                      looking a stem up for, which rules out every suffixed form.
+     */
     private prefixGroupMatches;
     /**
      * Whether the word (with a prefix already stripped) is a stem that takes the prefix,
@@ -279,6 +309,25 @@ declare class Typo {
     /** Whether the word matches one of the COMPOUNDRULE patterns. */
     private isCompound;
     private matchesCompoundRule;
+    /**
+     * Records every prefix of every stem in a Bloom filter, so that stemPrefixDepth() can
+     * tell how much of the start of a word could be the start of a stem.
+     *
+     * suggest() checks a very large number of strings that are not words. Removing a suffix
+     * from one of them leaves the start of a stem, and each stem that could be has to be
+     * looked up; in a dictionary with many suffixes that is many lookups for every string.
+     * Most of those strings stop looking like any stem after a few characters, which rules
+     * the lookups out without making them.
+     *
+     * The filter is only built when suggest() first needs it; without it, every lookup is made.
+     */
+    private buildStemPrefixIndex;
+    /**
+     * How many characters at the start of the word are (almost certainly) the start of some
+     * stem. A longer start of the word is definitely not the start of any stem. Without the
+     * filter from buildStemPrefixIndex(), this is the length of the word, which rules nothing out.
+     */
+    private stemPrefixDepth;
     /**
      * Records the first and last two characters of every string the dictionary can accept,
      * in case-insensitive ASCII bitmaps, so that mayBeKnown() can reject most impossible

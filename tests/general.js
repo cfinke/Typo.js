@@ -127,6 +127,48 @@ function run() {
 		ok(!dict.check("n'urger"), "The stem isn't flagged with the prefix.");
 	});
 
+	test("check() gives the same results once suggest() has built its stem filter", function() {
+		// suggest() builds a filter of stem prefixes that check() then uses to skip lookups.
+		var affData = [
+			"PFX U Y 2", "PFX U 0 0/S .", "PFX U 0 kilo/S .",
+			"PFX N Y 1", "PFX N 0 n' .",
+			"PFX R Y 1", "PFX R 0 re .",
+			"SFX S Y 1", "SFX S 0 s .",
+			"SFX V N 2", "SFX V er e/N er", "SFX V er ant er",
+			"SFX A Y 1", "SFX A y ies/T y",
+			"SFX T Y 1", "SFX T 0 t ."
+		].join("\n");
+		var dict = new Typo("xx", affData, "5\nwatt/U\nvolt\nurger/V\nplay/RS\nberry/A");
+		var words = [
+			"watt", "watts", "kilowatt", "kilowatts", "volt", "volts", "kilovolts",
+			"urger", "urge", "n'urge", "urgant", "n'urgant", "n'urger",
+			"play", "plays", "replay", "replays", "rreplay", "playss",
+			"berry", "berries", "berriest", "berryt", "berrie",
+			"wxtt", "wxtts", "kilowxtts", "xlay", "pxays", "repxays", "bxrries", "bexriest", "uxge", "n'uxge"
+		];
+		var expected = [
+			true, true, true, true, true, false, false,
+			true, true, true, true, false, false,
+			true, true, true, true, false, false,
+			true, true, true, false, false,
+			false, false, false, false, false, false, false, false, false, false
+		];
+		var check = function() {
+			return words.map(function(word) { return dict.check(word); });
+		};
+
+		deepEqual(check(), expected, "Before suggest() is called.");
+		ok(dict.suggest("wat").indexOf("watt") !== -1, "suggest() runs its edit search, which builds the filter.");
+		deepEqual(check(), expected, "After suggest() is called.");
+
+		var english = new Typo("en_US");
+		var englishWords = ["hello", "Hello", "HELLO", "unhappiness", "reconsidered", "houses", "1st", "22nd", "helo", "unhapiness", "xouses", "houxes", "zzz"];
+		var before = englishWords.map(function(word) { return english.check(word); });
+
+		english.suggest("speling");
+		deepEqual(englishWords.map(function(word) { return english.check(word); }), before, "en_US results are unchanged.");
+	});
+
 	test("Changing an array returned by suggest() doesn't change later results", function() {
 		var dict = new Typo("en_US");
 		var first = dict.suggest("speling");

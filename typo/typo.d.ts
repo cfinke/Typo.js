@@ -84,8 +84,13 @@ declare class Typo {
     dictionaryTable: DictionaryTable;
     /** COMPOUNDRULE patterns, as written in the .aff file. */
     compoundRules: string[];
-    /** REP table: pairs of [misspelling, correction]. */
+    /**
+     * REP table: pairs of [misspelling, correction], as written in the .aff file. A
+     * misspelling may start with "^" or end with "$" to only match the start or the end of a word.
+     */
     replacementTable: [string, string][];
+    /** MAP table: groups of related characters (or character sequences), e.g. ["e", "é", "è"]. */
+    mapTable: string[][];
     /** Every other .aff directive, keyed by name, e.g. flags.NOSUGGEST === "!". */
     flags: Record<string, string>;
     /** Cached results of suggest(), keyed by the misspelled word. */
@@ -353,8 +358,16 @@ declare class Typo {
     suggest(word: string, limit?: number): string[];
     /** Applies the output conversion table (OCONV) to suggestions, dropping duplicates. */
     private convertOutput;
-    /** The REP table: the first replacement that produces a known word is the suggestion. */
+    /**
+     * The REP table: the first replacement that produces a known word is the suggestion.
+     * "^" at the start of a misspelling and "$" at its end tie it to the start or end of the word.
+     */
     private suggestFromReplacements;
+    /**
+     * The MAP table: known words made by swapping characters of the word for related ones
+     * (typically accented forms of the same letter). Words that need fewer swaps come first.
+     */
+    private suggestFromMap;
     private ensureAlphabet;
     /**
      * Calls visit() for the strings one edit away from the word: every deletion,

@@ -101,7 +101,7 @@ API
 | `suggest(word, limit = 5)` | Corrections for a misspelled word, best first. Results are cached per word. |
 | `hasFlag(word, directive)` | Whether a stem carries the flag named by an `.aff` directive, e.g. `hasFlag("fuck", "NOSUGGEST")`. |
 | `loaded`, `dictionary` | Load state and locale code. |
-| `rules`, `dictionaryTable`, `compoundRules`, `replacementTable`, `flags`, `memoized` | The parsed dictionary data. `dictionaryTable` maps each stem to an array of its flag strings (one per `.dic` line), or to `null` for a stem listed without flags. |
+| `rules`, `dictionaryTable`, `compoundRules`, `replacementTable`, `mapTable`, `flags`, `memoized` | The parsed dictionary data. `dictionaryTable` maps each stem to an array of its flag strings (one per `.dic` line), or to `null` for a stem listed without flags. |
 
 `settings` accepts `dictionaryPath`, `flags`, `asyncLoad`, `loadedCallback` and `errorCallback`.
 
@@ -109,7 +109,8 @@ Typo.js has full support for the following Hunspell affix flags:
 
 * `PFX`
 * `SFX` (including continuation classes, two-level suffixes and prefix/suffix cross products)
-* `REP`
+* `REP` (including `^` and `$` to match only the start or the end of a word)
+* `MAP` (related characters, such as accented forms of a letter; words that differ from the misspelling only by related characters are suggested first)
 * `FLAG` (single-character, `long`, `num` and `UTF-8`)
 * `AF`
 * `COMPOUNDMIN`

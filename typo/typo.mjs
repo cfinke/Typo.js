@@ -11,6 +11,8 @@ var DEFAULT_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 var DEFAULT_SUGGESTION_LIMIT = 5;
 var PRIORITY_SUGGESTION_BONUS = 1e3;
 var DEFAULT_COMPOUND_MIN = 3;
+var MAP_MAX_SUBSTITUTIONS = 3;
+var MAP_MAX_CANDIDATES = 2e3;
 var NOT_LOADED_ERROR = "Dictionary not loaded.";
 var ASYNC_PARSE_BATCH = 1024;
 function nodeFs() {
@@ -192,8 +194,13 @@ var Typo = class _Typo {
     this.dictionaryTable = /* @__PURE__ */ new Map();
     /** COMPOUNDRULE patterns, as written in the .aff file. */
     this.compoundRules = [];
-    /** REP table: pairs of [misspelling, correction]. */
+    /**
+     * REP table: pairs of [misspelling, correction], as written in the .aff file. A
+     * misspelling may start with "^" or end with "$" to only match the start or the end of a word.
+     */
     this.replacementTable = [];
+    /** MAP table: groups of related characters (or character sequences), e.g. ["e", "é", "è"]. */
+    this.mapTable = [];
     /** Cached results of suggest(), keyed by the misspelled word. */
     this.memoized = /* @__PURE__ */ Object.create(null);
     /**
@@ -434,6 +441,7 @@ var Typo = class _Typo {
     this.conditionCache = /* @__PURE__ */ new Map();
     this.compoundRules = [];
     this.replacementTable = [];
+    this.mapTable = [];
     const tables = /* @__PURE__ */ new Set(["REP", "ICONV", "OCONV", "COMPOUNDRULE", "AF", "AM", "MAP", "BREAK", "PHONE", "CHECKCOMPOUNDPATTERN"]);
     let i = 0;
     const nextTableLine = (directive, flag) => {
@@ -556,6 +564,16 @@ var Typo = class _Typo {
       case "AF":
         this.flagAliases.push(parts[1] || "");
         break;
+      case "MAP": {
+        const group = (parts[1] || "").match(/\([^)]*\)|[\uD800-\uDBFF][\uDC00-\uDFFF]|[^()]/g);
+        if (group) {
+          const items = group.map((item) => item.length > 1 && item[0] === "(" ? item.slice(1, -1) : item).filter((item) => item);
+          if (items.length > 1) {
+            this.mapTable.push(items);
+          }
+        }
+        break;
+      }
       default:
         break;
     }
@@ -1686,7 +1704,11 @@ var Typo = class _Typo {
     if (!converted) {
       return [];
     }
-    const suggestions = this.suggestFromReplacements(converted) ?? this.suggestFromEdits(converted, limit);
+    let suggestions = this.suggestFromReplacements(converted);
+    if (suggestions === null) {
+      const mapped = this.suggestFromMap(converted);
+      suggestions = mapped.length >= limit ? mapped.slice(0, limit) : [.../* @__PURE__ */ new Set([...mapped, ...this.suggestFromEdits(converted, limit)])].slice(0, limit);
+    }
     this.memoized[word] = { suggestions, limit };
     return suggestions.slice();
   }
@@ -1697,10 +1719,23 @@ var Typo = class _Typo {
     }
     return [...new Set(suggestions.map((suggestion) => this.applyConversion(suggestion, this.outputConversion)))];
   }
-  /** The REP table: the first replacement that produces a known word is the suggestion. */
+  /**
+   * The REP table: the first replacement that produces a known word is the suggestion.
+   * "^" at the start of a misspelling and "$" at its end tie it to the start or end of the word.
+   */
   suggestFromReplacements(word) {
-    for (const [from, to] of this.replacementTable) {
-      const position = word.indexOf(from);
+    for (const [pattern, to] of this.replacementTable) {
+      const atStart = pattern.length > 1 && pattern[0] === "^";
+      const atEnd = pattern.length > (atStart ? 2 : 1) && pattern[pattern.length - 1] === "$";
+      const from = pattern.substring(atStart ? 1 : 0, atEnd ? pattern.length - 1 : pattern.length);
+      let position;
+      if (atStart) {
+        position = word.startsWith(from) && (!atEnd || word.length === from.length) ? 0 : -1;
+      } else if (atEnd) {
+        position = word.endsWith(from) ? word.length - from.length : -1;
+      } else {
+        position = word.indexOf(from);
+      }
       if (position === -1) {
         continue;
       }
@@ -1710,6 +1745,64 @@ var Typo = class _Typo {
       }
     }
     return null;
+  }
+  /**
+   * The MAP table: known words made by swapping characters of the word for related ones
+   * (typically accented forms of the same letter). Words that need fewer swaps come first.
+   */
+  suggestFromMap(word) {
+    const table = this.mapTable;
+    if (table.length === 0) {
+      return [];
+    }
+    const options = [];
+    let any = false;
+    for (let i = 0; i < word.length; i++) {
+      const here = [];
+      for (const group of table) {
+        for (const item of group) {
+          if (word.startsWith(item, i)) {
+            const upper = item !== item.toLowerCase();
+            const alternatives = group.filter((other) => other !== item && other !== other.toLowerCase() === upper);
+            if (alternatives.length > 0) {
+              here.push({ length: item.length, alternatives });
+              any = true;
+            }
+          }
+        }
+      }
+      options.push(here);
+    }
+    if (!any) {
+      return [];
+    }
+    const found = [];
+    let tried = 0;
+    const visit = (start, prefix, swaps, level) => {
+      for (let i = start; i < word.length; i++) {
+        for (const option of options[i]) {
+          for (const alternative of option.alternatives) {
+            if (tried >= MAP_MAX_CANDIDATES) {
+              return;
+            }
+            const head = prefix + word.substring(start, i) + alternative;
+            if (swaps + 1 < level) {
+              visit(i + option.length, head, swaps + 1, level);
+              continue;
+            }
+            const candidate = head + word.substring(i + option.length);
+            tried++;
+            if (!found.includes(candidate) && this.checkCaseVariants(candidate) && !this.hasFlag(candidate, "NOSUGGEST")) {
+              found.push(candidate);
+            }
+          }
+        }
+      }
+    };
+    for (let level = 1; level <= MAP_MAX_SUBSTITUTIONS && tried < MAP_MAX_CANDIDATES; level++) {
+      visit(0, "", 0, level);
+    }
+    return this.convertOutput(found);
   }
   ensureAlphabet() {
     if (this.alphabetLetters.length > 0 && this.alphabet) {

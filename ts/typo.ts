@@ -124,6 +124,9 @@ const DEFAULT_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DEFAULT_SUGGESTION_LIMIT = 5;
 const PRIORITY_SUGGESTION_BONUS = 1000;
 const DEFAULT_COMPOUND_MIN = 3;
+/** How many related characters (MAP) may be swapped in one suggestion, and how many strings are tried. */
+const MAP_MAX_SUBSTITUTIONS = 3;
+const MAP_MAX_CANDIDATES = 2000;
 const NOT_LOADED_ERROR = "Dictionary not loaded.";
 /** How many .dic lines are parsed between yields during an asynchronous load. */
 const ASYNC_PARSE_BATCH = 1024;
@@ -398,8 +401,13 @@ export class Typo {
 	dictionaryTable: DictionaryTable = new Map();
 	/** COMPOUNDRULE patterns, as written in the .aff file. */
 	compoundRules: string[] = [];
-	/** REP table: pairs of [misspelling, correction]. */
+	/**
+	 * REP table: pairs of [misspelling, correction], as written in the .aff file. A
+	 * misspelling may start with "^" or end with "$" to only match the start or the end of a word.
+	 */
 	replacementTable: [string, string][] = [];
+	/** MAP table: groups of related characters (or character sequences), e.g. ["e", "é", "è"]. */
+	mapTable: string[][] = [];
 	/** Every other .aff directive, keyed by name, e.g. flags.NOSUGGEST === "!". */
 	flags: Record<string, string>;
 	/** Cached results of suggest(), keyed by the misspelled word. */
@@ -726,6 +734,7 @@ export class Typo {
 		this.conditionCache = new Map();
 		this.compoundRules = [];
 		this.replacementTable = [];
+		this.mapTable = [];
 
 		// Directives whose header line gives the number of table lines that follow.
 		const tables = new Set(["REP", "ICONV", "OCONV", "COMPOUNDRULE", "AF", "AM", "MAP", "BREAK", "PHONE", "CHECKCOMPOUNDPATTERN"]);
@@ -889,8 +898,21 @@ export class Typo {
 				// Alias numbers are 1-based.
 				this.flagAliases.push(parts[1] || "");
 				break;
+			case "MAP": {
+				// Related characters, e.g. "MAP eéèêë"; a sequence of characters is in parentheses, e.g. "MAP ß(ss)".
+				const group = (parts[1] || "").match(/\([^)]*\)|[\uD800-\uDBFF][\uDC00-\uDFFF]|[^()]/g);
+
+				if (group) {
+					const items = group.map((item) => item.length > 1 && item[0] === "(" ? item.slice(1, -1) : item).filter((item) => item);
+
+					if (items.length > 1) {
+						this.mapTable.push(items);
+					}
+				}
+				break;
+			}
 			default:
-				// AM, MAP, BREAK, PHONE, CHECKCOMPOUNDPATTERN: not used by Typo.
+				// AM, BREAK, PHONE, CHECKCOMPOUNDPATTERN: not used by Typo.
 				break;
 		}
 	}
@@ -2383,7 +2405,16 @@ export class Typo {
 			return [];
 		}
 
-		const suggestions = this.suggestFromReplacements(converted) ?? this.suggestFromEdits(converted, limit);
+		let suggestions = this.suggestFromReplacements(converted);
+
+		if (suggestions === null) {
+			// Words that only differ by related characters (MAP) come before the other corrections.
+			const mapped = this.suggestFromMap(converted);
+
+			suggestions = mapped.length >= limit
+				? mapped.slice(0, limit)
+				: [...new Set([...mapped, ...this.suggestFromEdits(converted, limit)])].slice(0, limit);
+		}
 
 		this.memoized[word] = { suggestions, limit };
 
@@ -2400,10 +2431,24 @@ export class Typo {
 		return [...new Set(suggestions.map((suggestion) => this.applyConversion(suggestion, this.outputConversion)))];
 	}
 
-	/** The REP table: the first replacement that produces a known word is the suggestion. */
+	/**
+	 * The REP table: the first replacement that produces a known word is the suggestion.
+	 * "^" at the start of a misspelling and "$" at its end tie it to the start or end of the word.
+	 */
 	private suggestFromReplacements(word: string): string[] | null {
-		for (const [from, to] of this.replacementTable) {
-			const position = word.indexOf(from);
+		for (const [pattern, to] of this.replacementTable) {
+			const atStart = pattern.length > 1 && pattern[0] === "^";
+			const atEnd = pattern.length > (atStart ? 2 : 1) && pattern[pattern.length - 1] === "$";
+			const from = pattern.substring(atStart ? 1 : 0, atEnd ? pattern.length - 1 : pattern.length);
+			let position: number;
+
+			if (atStart) {
+				position = (word.startsWith(from) && (!atEnd || word.length === from.length)) ? 0 : -1;
+			} else if (atEnd) {
+				position = word.endsWith(from) ? word.length - from.length : -1;
+			} else {
+				position = word.indexOf(from);
+			}
 
 			if (position === -1) {
 				continue;
@@ -2417,6 +2462,89 @@ export class Typo {
 		}
 
 		return null;
+	}
+
+	/**
+	 * The MAP table: known words made by swapping characters of the word for related ones
+	 * (typically accented forms of the same letter). Words that need fewer swaps come first.
+	 */
+	private suggestFromMap(word: string): string[] {
+		const table = this.mapTable;
+
+		if (table.length === 0) {
+			return [];
+		}
+
+		// For each position in the word, what could replace the text that starts there.
+		const options: { length: number, alternatives: string[] }[][] = [];
+		let any = false;
+
+		for (let i = 0; i < word.length; i++) {
+			const here: { length: number, alternatives: string[] }[] = [];
+
+			for (const group of table) {
+				for (const item of group) {
+					if (word.startsWith(item, i)) {
+						// Some dictionaries put both cases of a letter in one group. Changing the
+						// case of the misspelling is not a correction, so those are left out.
+						const upper = item !== item.toLowerCase();
+						const alternatives = group.filter((other) => other !== item && (other !== other.toLowerCase()) === upper);
+
+						if (alternatives.length > 0) {
+							here.push({ length: item.length, alternatives });
+							any = true;
+						}
+					}
+				}
+			}
+
+			options.push(here);
+		}
+
+		if (!any) {
+			return [];
+		}
+
+		const found: string[] = [];
+		let tried = 0;
+
+		// Tries every way of making exactly `level` swaps, from left to right. `prefix` is
+		// the text built so far for the first `start` characters of the word.
+		const visit = (start: number, prefix: string, swaps: number, level: number): void => {
+			for (let i = start; i < word.length; i++) {
+				for (const option of options[i]) {
+					for (const alternative of option.alternatives) {
+						if (tried >= MAP_MAX_CANDIDATES) {
+							return;
+						}
+
+						const head = prefix + word.substring(start, i) + alternative;
+
+						if (swaps + 1 < level) {
+							visit(i + option.length, head, swaps + 1, level);
+
+							continue;
+						}
+
+						const candidate = head + word.substring(i + option.length);
+
+						tried++;
+
+						if (!found.includes(candidate) && this.checkCaseVariants(candidate) && !this.hasFlag(candidate, "NOSUGGEST")) {
+							found.push(candidate);
+						}
+					}
+				}
+			}
+		};
+
+		// One swap everywhere first, then two, so that the closest words are found first
+		// and are not lost if the limit on the number of strings tried is reached.
+		for (let level = 1; level <= MAP_MAX_SUBSTITUTIONS && tried < MAP_MAX_CANDIDATES; level++) {
+			visit(0, "", 0, level);
+		}
+
+		return this.convertOutput(found);
 	}
 
 	private ensureAlphabet(): void {

@@ -67,6 +67,24 @@ function testDictionary(dict) {
 		// https://github.com/cfinke/Typo.js/issues/82
 		equal(5, dict.suggest("ok").length);
 	});
+
+	// https://github.com/cfinke/Typo.js/issues/58
+	test("Words that are only missing an accent are suggested first", function () {
+		ok(/^compl[èé]tement$/.test(dict.suggest("completement")[0]), "completement -> " + dict.suggest("completement")[0]);
+		equal(dict.suggest("eleve")[0], "élève");
+		equal(dict.suggest("francais")[0], "français");
+
+		// The dictionary with every spelling variant accepts "buche" as it is.
+		if (!dict.check("buche")) {
+			equal(dict.suggest("buche")[0], "bûche");
+		}
+	});
+
+	// https://github.com/cfinke/Typo.js/issues/58
+	test("The REP table is used for suggestions", function () {
+		deepEqual(dict.suggest("faisez"), ["faites"]);
+		deepEqual(dict.suggest("puit"), ["puits"]);
+	});
 }
 
 addEventListener( "load", run, false );

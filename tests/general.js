@@ -169,6 +169,37 @@ function run() {
 		deepEqual(englishWords.map(function(word) { return english.check(word); }), before, "en_US results are unchanged.");
 	});
 
+	// https://github.com/cfinke/Typo.js/issues/58
+	test("REP entries can be tied to the start or the end of a word", function() {
+		var affData = "REP 3\nREP faisez$ faites\nREP ^puit puits\nREP ^Ca$ Ça";
+		var dict = new Typo("xx", affData, "3\nfaites\npuits\nÇa");
+
+		deepEqual(dict.replacementTable, [["faisez$", "faites"], ["^puit", "puits"], ["^Ca$", "Ça"]]);
+		deepEqual(dict.suggest("faisez"), ["faites"], "A pattern ending in $ matches the end of the word.");
+		deepEqual(dict.suggest("xfaisezx"), [], "A pattern ending in $ doesn't match the middle of a word.");
+		deepEqual(dict.suggest("puit"), ["puits"], "A pattern starting with ^ matches the start of the word.");
+		deepEqual(dict.suggest("Ca"), ["Ça"], "A pattern with both matches the whole word.");
+		deepEqual(dict.suggest("Cab"), [], "A pattern with both doesn't match a longer word.");
+	});
+
+	// https://github.com/cfinke/Typo.js/issues/58
+	test("Words that differ only by related characters (MAP) are suggested first", function() {
+		var affData = "TRY abcdefghijklmnopqrstuvwxyzûéè\nMAP 3\nMAP uûü\nMAP eéè\nMAP ß(ss)\nSFX S Y 1\nSFX S 0 s .";
+		var dict = new Typo("xx", affData, "7\nbûche/S\nbouche\nruche\nélève\nélevé\nStraße\neleva");
+
+		deepEqual(dict.mapTable, [["u", "û", "ü"], ["e", "é", "è"], ["ß", "ss"]]);
+		equal(dict.suggest("buche")[0], "bûche", "The accented word comes before words that are one edit away.");
+		ok(dict.suggest("buche").indexOf("bouche") > 0, "The other corrections still follow.");
+		equal(dict.suggest("buches")[0], "bûches", "Affixed forms are found too.");
+		deepEqual(dict.suggest("eleve").slice(0, 2), ["élève", "élevé"], "Several characters can be swapped in one word.");
+		equal(dict.suggest("Strasse")[0], "Straße", "A sequence of characters can be related to one character.");
+		equal(dict.suggest("Buche")[0], "Bûche", "The capitalization of the misspelling is kept.");
+		deepEqual(dict.suggest("buche", 1), ["bûche"], "The limit is respected.");
+
+		var mixed = new Typo("xx", "MAP 1\nMAP eéEÉ", "2\nété\nEte");
+		equal(mixed.suggest("ete")[0], "été", "A related character in the other case is not swapped in, so the closer \"Ete\" doesn't come first.");
+	});
+
 	test("Changing an array returned by suggest() doesn't change later results", function() {
 		var dict = new Typo("en_US");
 		var first = dict.suggest("speling");

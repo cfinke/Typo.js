@@ -1,0 +1,13 @@
+{
+  "name": "typo-js-dev",
+  "private": true,
+  "description": "Development dependencies and scripts for Typo.js. The published package lives in typo/.",
+  "scripts": {
+    "build": "./build.sh",
+    "test": "node tests/run.js && node tests/async-environments.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5",
+    "typescript": "5.9.3"
+  }
+}

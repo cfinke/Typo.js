@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Typo.js example</title>
+	</head>
+	<body>
+		<p id="status">Loading the en_US dictionary…</p>
+
+		<!--
+			Browsers don't let a page opened from disk (a file:// URL) read other files on its own,
+			so in that case the dictionary files have to be chosen by hand.
+		-->
+		<p id="picker" hidden>
+			This page can't read the dictionary files on its own (that's normal when it's opened straight from disk).
+			Choose both <code>typo/dictionaries/en_US/en_US.aff</code> and <code>en_US.dic</code>:
+			<input type="file" id="files" multiple accept=".aff,.dic">
+		</p>
+
+		<form onsubmit="return false;">
+			<input type="text" id="word" placeholder="Type a word" disabled>
+			<span id="correct_or_not"></span>
+		</form>
+
+		<script src="../../typo/typo.js"></script>
+		<script>
+			var dictionary = null;
+			var statusEl = document.getElementById( 'status' );
+			var wordEl = document.getElementById( 'word' );
+
+			function ready( loadedDictionary, start ) {
+				dictionary = loadedDictionary;
+				statusEl.innerText = "Loaded the " + dictionary.dictionary + " dictionary in " + Math.round( performance.now() - start ) + " ms.";
+				document.getElementById( 'picker' ).hidden = true;
+				wordEl.disabled = false;
+				wordEl.focus();
+			}
+
+			function check_with_typo( word ) {
+				var result = document.getElementById( 'correct_or_not' );
+
+				if ( ! word ) {
+					result.innerText = "";
+				} else if ( dictionary.check( word ) ) {
+					result.innerText = word + " is a correctly spelled word.";
+				} else {
+					result.innerText = word + " is not a correctly spelled word.";
+				}
+			}
+
+			wordEl.addEventListener( 'input', function () {
+				check_with_typo( wordEl.value );
+			} );
+
+			// When the page is served over HTTP, Typo can load the dictionary files itself.
+			var loadStart = performance.now();
+
+			Typo.load( "en_US", { dictionaryPath: "../../typo/dictionaries" } ).then( function ( loadedDictionary ) {
+				ready( loadedDictionary, loadStart );
+			}, function () {
+				statusEl.innerText = "";
+				document.getElementById( 'picker' ).hidden = false;
+			} );
+
+			// Otherwise, read the chosen files and pass their contents to the constructor.
+			document.getElementById( 'files' ).addEventListener( 'change', function ( event ) {
+				var files = Array.from( event.target.files );
+				var affFile = files.find( function ( file ) { return /\.aff$/.test( file.name ); } );
+				var dicFile = files.find( function ( file ) { return /\.dic$/.test( file.name ); } );
+
+				if ( ! affFile || ! dicFile ) {
+					statusEl.innerText = "Choose both the .aff file and the .dic file.";
+					return;
+				}
+
+				var readStart = performance.now();
+
+				Promise.all( [ affFile.text(), dicFile.text() ] ).then( function ( contents ) {
+					var locale = affFile.name.replace( /\.aff$/, '' );
+
+					ready( new Typo( locale, contents[0], contents[1] ), readStart );
+				} );
+			} );
+		</script>
+	</body>
+</html>

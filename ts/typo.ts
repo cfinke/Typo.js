@@ -1,62 +1,106 @@
-/* globals chrome: false */
-/* globals __dirname: false */
-/* globals require: false */
-/* globals Buffer: false */
-/* globals module: false */
-
 /**
- * Typo is a JavaScript implementation of a spellchecker using hunspell-style
- * dictionaries.
+ * Typo.js — a Hunspell-style spellchecker written in TypeScript.
+ *
+ * Typo reads Hunspell .aff and .dic dictionary files and checks words against them
+ * (`check()`, `checkExact()`), and suggests corrections for misspellings (`suggest()`).
+ *
+ * Internally, words are never pre-expanded into every affixed form. The .dic file
+ * is stored as a map from stem to its flag strings, and affixes are stripped from
+ * a word at lookup time, which keeps memory use proportional to the size of the
+ * dictionary file.
  */
 
-interface Window {
-	chrome: any;
-	browser: any;
-}
-
-var Typo;
-
-(function () {
-"use strict";
-
-interface HunspellFlags {
-	PFX?: boolean;
-	SFX?: boolean;
-	REP?: boolean;
-	FLAG?: boolean;
-	COMPOUNDMIN?: boolean;
-	COMPOUNDRULE?: boolean;
-	ONLYINCOMPOUND?: boolean;
-	KEEPCASE?: boolean;
-	NOSUGGEST?: boolean;
-	PRIORITYSUGGEST?: boolean;
-	NEEDAFFIX?: boolean;
-	ICONV?: boolean;
-	OCONV?: boolean;
-}
-
-interface TypoSettings {
+/** Options accepted by the constructor. */
+export interface TypoSettings {
+	/**
+	 * Directory that holds one sub-directory per dictionary, e.g. "typo/dictionaries"
+	 * holding "typo/dictionaries/en_US/en_US.aff" and ".dic".
+	 *
+	 * Wherever a global `window` exists, this defaults to "typo/dictionaries": relative to
+	 * the page, to the extension root in a browser extension, or to the working directory in
+	 * Node.js when something like jsdom defines `window` there. Otherwise, in Node.js it
+	 * defaults to the "dictionaries" directory next to the Typo module, and anywhere else (a
+	 * web worker or a service worker) to "./dictionaries", so pass the path explicitly there.
+	 */
 	dictionaryPath?: string;
-	flags?: HunspellFlags;
+	/** Initial affix-file directives, keyed by directive name (e.g. { NOSUGGEST: "!" }). */
+	flags?: Record<string, string>;
+	/**
+	 * Load and parse the dictionary asynchronously. Parsing is time-sliced through
+	 * requestIdleCallback where available so that it does not block the UI.
+	 */
 	asyncLoad?: boolean;
-	loadedCallback?: Function;
+	/** Called with the Typo instance once an asynchronous load has finished. */
+	loadedCallback?: (dictionary: Typo) => void;
+	/**
+	 * Called if an asynchronous load fails, and also with anything that loadedCallback
+	 * throws. Defaults to logging the error.
+	 */
+	errorCallback?: (error: unknown) => void;
 }
 
-interface HashMap {
-	[key: string]: any;
+export type AffixType = "PFX" | "SFX";
+
+/** One line of a PFX or SFX rule. */
+export interface AffixEntry {
+	/** The rule's flag (its code in the .aff file). */
+	readonly flag: string;
+	readonly type: AffixType;
+	/** Whether this rule may be combined with an affix of the other type (the Y/N column). */
+	readonly crossProduct: boolean;
+	/** Text removed from the stem before the affix is added ("" when the column is 0). */
+	readonly strip: string;
+	/** Text added to the stem ("" when the column is 0). */
+	readonly add: string;
+	/** Condition the stem has to meet, compiled to an anchored regular expression; null for ".". */
+	readonly condition: RegExp | null;
+	/** Flags that the affixed form carries on (the part after the "/" in the add column). */
+	readonly continuation: string;
 }
 
-interface AffixEntry {
-	add: string;
-	continuationClasses?: string[];
-	match?: RegExp;
-	remove?: RegExp|string;
-}
-
-interface AffixRule {
-	type: string;
-	combineable: boolean;
+/** A PFX or SFX rule: its header plus all of its entries. */
+export interface AffixRule {
+	type: AffixType;
+	crossProduct: boolean;
 	entries: AffixEntry[];
+}
+
+/** A suggestion list cached by suggest(). */
+export interface MemoizedSuggestions {
+	suggestions: string[];
+	limit: number;
+}
+
+/**
+ * The dictionary table maps each stem to the list of flag strings it was listed with
+ * (one string per .dic line), or to null when it was only ever listed without flags.
+ */
+export type DictionaryTable = Map<string, string[] | null>;
+
+type FlagMode = "char" | "long" | "num" | "utf8";
+
+/** Affix entries that add the same text and strip the same text, so they share a stem. */
+interface AffixGroup {
+	add: string;
+	strip: string;
+	entries: AffixEntry[];
+}
+
+/** A node of a trie over the text that affixes add, keyed by character code. */
+interface TrieNode {
+	children: Map<number, TrieNode> | null;
+	groups: AffixGroup[] | null;
+}
+
+interface CompoundItem {
+	flag: string;
+	optional: boolean;
+	repeatable: boolean;
+}
+
+interface CompoundRule {
+	pattern: string;
+	items: CompoundItem[];
 }
 
 interface ConversionEntry {
@@ -67,372 +111,547 @@ interface ConversionEntry {
 }
 
 interface ConversionTable {
-	regex: RegExp;
-	replacements: string[];
+	/** Entries anchored to the start or end of the word, longest pattern first. */
+	anchored: ConversionEntry[];
+	/** Matches every unanchored pattern, longest first. */
+	regex: RegExp | null;
+	replacements: Map<string, string>;
 }
 
-function runGenSync<T>(gen: Generator<void, T, void>): T {
-	let next;
-	while (!(next = gen.next()).done) {}
-	return next.value;
+const DEFAULT_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const DEFAULT_SUGGESTION_LIMIT = 5;
+const PRIORITY_SUGGESTION_BONUS = 1000;
+const DEFAULT_COMPOUND_MIN = 3;
+const NOT_LOADED_ERROR = "Dictionary not loaded.";
+/** How many .dic lines are parsed between yields during an asynchronous load. */
+const ASYNC_PARSE_BATCH = 1024;
+
+/* ------------------------------------------------------------------------------------------------
+ * Environment helpers
+ * ---------------------------------------------------------------------------------------------- */
+
+declare const __dirname: string | undefined;
+declare const require: ((id: string) => any) | undefined;
+
+interface NodeFs {
+	readFileSync(path: string): Uint8Array;
+	promises: { readFile(path: string): Promise<Uint8Array> };
 }
 
-function runGenAsync<T>(gen: Generator<void, T, void>): Promise<T> {
-	if ((typeof window !== "undefined") && window.requestIdleCallback) {
-		// run the generator in idle callbacks
-		//
-		// The generator should yield periodically to allow prompt return to the event loop
-		// when the deadline is crossed.
-		return new Promise((resolve, reject) => {
-			function idleCallback(deadline: IdleDeadline) {
-				try {
-					let next;
-					while (!(next = gen.next()).done) {
-						if (!deadline.timeRemaining()) {
-							window.requestIdleCallback(idleCallback)
-							return;
-						}
-					}
-					resolve(next.value);
-				} catch (err) {
-					reject(err);
-				}
-			}
-			window.requestIdleCallback(idleCallback);
-		});
-	} else {
-		// fallback: run the generator in a single callback
-		return (async function() { return runGenSync(gen); })();
+/** Node's fs module, or null when not running in Node.js. */
+function nodeFs(): NodeFs | null {
+	const proc = (globalThis as any).process;
+
+	if (proc && typeof proc.getBuiltinModule === "function") {
+		return proc.getBuiltinModule("node:fs") as NodeFs;
 	}
+
+	if (typeof require === "function") {
+		try {
+			return require("fs") as NodeFs;
+		} catch {
+			return null;
+		}
+	}
+
+	return null;
 }
 
+function isNode(): boolean {
+	const proc = (globalThis as any).process;
+
+	return !!(proc && proc.versions && proc.versions.node);
+}
+
+/** The directory this module was loaded from, when that can be determined. */
+const moduleDirectory: string | null = (() => {
+	try {
+		if (typeof __dirname === "string") {
+			return __dirname;
+		}
+
+		const url: string | undefined = (import.meta as any).url;
+
+		if (url && url.startsWith("file:")) {
+			let dir = decodeURIComponent(new URL(".", url).pathname);
+
+			if (/^\/[A-Za-z]:\//.test(dir)) {
+				// Windows: "/C:/foo/" → "C:/foo/"
+				dir = dir.substring(1);
+			}
+
+			return dir.replace(/\/$/, "");
+		}
+	} catch {
+		// Fall through.
+	}
+
+	return null;
+})();
 
 /**
- * Typo constructor.
- *
- * @param {string} [dictionary] The locale code of the dictionary being used. e.g.,
- *                              "en_US". This is only used to auto-load dictionaries.
- * @param {string} [affData]    The data from the dictionary's .aff file. If omitted
- *                              and Typo.js is being used in a Chrome extension, the .aff
- *                              file will be loaded automatically from
- *                              lib/typo/dictionaries/[dictionary]/[dictionary].aff
- *                              In other environments, it will be loaded from
- *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].aff
- * @param {string} [wordsData]  The data from the dictionary's .dic file. If omitted
- *                              and Typo.js is being used in a Chrome extension, the .dic
- *                              file will be loaded automatically from
- *                              lib/typo/dictionaries/[dictionary]/[dictionary].dic
- *                              In other environments, it will be loaded from
- *                              [settings.dictionaryPath]/dictionaries/[dictionary]/[dictionary].dic
- * @param {Object} [settings]   Constructor settings. Available properties are:
- *                              {string} [dictionaryPath]: path to load dictionary from in non-chrome
- *                              environment.
- *                              {Object} [flags]: flag information.
- *                              {boolean} [asyncLoad]: If true, affData and wordsData will be loaded
- *                              and parsed asynchronously. The parsing is scheduled in idle
- *                              callbacks if available. You may consider loading a polyfill for
- *                              window.requestIdleCallback to avoid freezes in browsers not
- *                              supporting idle callbacks (eg: Safari).
- *                              {Function} [loadedCallback]: Called when both affData and wordsData
- *                              have been loaded. Only used if asyncLoad is set to true. The parameter
- *                              is the instantiated Typo object.
- *
- * @returns {Typo} A Typo object.
+ * Where dictionaries are looked for when there is no `window`: in Node.js, the
+ * "dictionaries" directory shipped next to the module; in a web worker or service worker,
+ * where the module's directory is not known, "./dictionaries".
  */
+function defaultDictionaryPathWithoutWindow(): string {
+	return (moduleDirectory === null ? "." : moduleDirectory) + "/dictionaries";
+}
 
-Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: string|boolean, settings?: TypoSettings) {
-	settings = settings || {} as TypoSettings;
+/** Maps the charset names found on .aff SET lines to WHATWG encoding labels. */
+function normalizeCharset(charset: string | null | undefined): string {
+	if (!charset) {
+		return "utf-8";
+	}
 
-	this.dictionary = null;
+	const lower = charset.trim().toLowerCase();
 
-	this.rules = {};
-	this.dictionaryTable = new Map();
+	if (lower === "utf8" || lower === "utf-8") {
+		return "utf-8";
+	}
 
-	this.compoundRules = [];
-	this.compoundRuleCodes = {};
+	const cp = lower.match(/^microsoft-cp(\d+)$/);
 
-	this.replacementTable = [];
+	if (cp) {
+		return "windows-" + cp[1];
+	}
 
-	this.inputConversionTable = null;
-	this.outputConversionTable = null;
+	if (lower === "tis620-2533") {
+		return "tis-620";
+	}
 
-	this.flags = settings.flags || {};
+	return lower;
+}
 
-	this.memoized = {};
+function decodeBytes(bytes: Uint8Array, charset: string): string {
+	const label = normalizeCharset(charset);
 
-	this.loaded = false;
+	try {
+		return new TextDecoder(label).decode(bytes);
+	} catch {
+		console.warn(`Typo.js: unsupported charset "${charset}", decoding as UTF-8 instead.`);
 
-	const self = this;
+		return new TextDecoder("utf-8").decode(bytes);
+	}
+}
 
-	let path;
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-	// Loop-control variables.
-	let i, j, _len, _jlen;
+const EMPTY_FLAGS: readonly string[] = [];
 
-	if (dictionary) {
-		self.dictionary = dictionary;
-		// If the data is preloaded, just setup the Typo object.
-		if (affData && wordsData) {
-			setup();
+/** Uppercases an ASCII character code; other codes are returned unchanged. */
+function asciiUpper(code: number): number {
+	return (code >= 97 && code <= 122) ? code - 32 : code;
+}
+
+/**
+ * Marks a pair of character codes in a 128×128 bitmap, along with its upper-case
+ * variants, so that a lookup of a word's own characters covers every capitalization
+ * variant that checkCaseVariants() might try. Non-ASCII pairs are never tested.
+ */
+function addPair(bitmap: Uint8Array, first: number, second: number): void {
+	if (first >= 128 || second >= 128) {
+		return;
+	}
+
+	const upperFirst = asciiUpper(first);
+	const upperSecond = asciiUpper(second);
+
+	setPairBit(bitmap, first, second);
+	setPairBit(bitmap, upperFirst, second);
+	setPairBit(bitmap, first, upperSecond);
+	setPairBit(bitmap, upperFirst, upperSecond);
+}
+
+function setPairBit(bitmap: Uint8Array, first: number, second: number): void {
+	const key = (first << 7) | second;
+
+	bitmap[key >> 3] |= 1 << (key & 7);
+}
+
+function trieChild(node: TrieNode, code: number): TrieNode {
+	if (node.children === null) {
+		node.children = new Map();
+	}
+
+	let child = node.children.get(code);
+
+	if (!child) {
+		child = { children: null, groups: null };
+		node.children.set(code, child);
+	}
+
+	return child;
+}
+
+/** The index of the first whitespace character in a line, or -1. */
+function firstWhitespace(line: string): number {
+	for (let i = 0; i < line.length; i++) {
+		const code = line.charCodeAt(i);
+
+		if (code === 32 || code === 9 || code === 13 || (code >= 10 && code <= 12) || (code >= 128 && /\s/.test(line[i]))) {
+			return i;
 		}
-		else {
-			if ( typeof window !== 'undefined' ) {
-				// Webpage or browser extension
-				if (settings.dictionaryPath) {
-					path = settings.dictionaryPath;
-				} else {
-					path = "typo/dictionaries";
-				}
+	}
 
-				// Browser extensions assume that the file is being loaded from the root of the extension.
-				if ( window.chrome && window.chrome.runtime && window.chrome.runtime.getURL ) {
-					path = window.chrome.runtime.getURL( path );
-				} else if ( window.browser && window.browser.runtime && window.browser.runtime.getURL ) {
-					path = window.browser.runtime.getURL( path );
+	return -1;
+}
+
+/** Equivalent to word.toUpperCase() === word, without allocating for ASCII words. */
+function isAllUpperCase(word: string): boolean {
+	for (let i = 0; i < word.length; i++) {
+		const code = word.charCodeAt(i);
+
+		if (code >= 97 && code <= 122) {
+			return false;
+		}
+
+		if (code >= 128) {
+			return word.toUpperCase() === word;
+		}
+	}
+
+	return true;
+}
+
+/** Whether lowercasing the first character would change the word. */
+function hasUpperCaseInitial(word: string): boolean {
+	const code = word.charCodeAt(0);
+
+	if (code < 128) {
+		return code >= 65 && code <= 90;
+	}
+
+	return word[0].toLowerCase() !== word[0];
+}
+
+/**
+ * Runs a generator to completion in time slices, so that long parses do not block
+ * the event loop. Uses idle callbacks in browsers that have them.
+ */
+function runInSlices(generator: Generator<void, void, void>): Promise<void> {
+	const win = (globalThis as any).window;
+	const requestIdle: ((cb: (deadline: { timeRemaining(): number }) => void) => void) | undefined =
+		(win && typeof win.requestIdleCallback === "function")
+			? win.requestIdleCallback.bind(win)
+			: (typeof (globalThis as any).requestIdleCallback === "function")
+				? (globalThis as any).requestIdleCallback.bind(globalThis)
+				: undefined;
+
+	return new Promise((resolve, reject) => {
+		function step(deadline?: { timeRemaining(): number }): void {
+			try {
+				const start = Date.now();
+
+				for (;;) {
+					if (generator.next().done) {
+						resolve();
+
+						return;
+					}
+
+					const outOfTime = deadline ? deadline.timeRemaining() <= 0 : (Date.now() - start) >= 12;
+
+					if (outOfTime) {
+						schedule();
+
+						return;
+					}
 				}
-			} else if (typeof __dirname !== 'undefined') {
-				// Node
-				path = __dirname + '/dictionaries';
+			} catch (error) {
+				reject(error);
+			}
+		}
+
+		function schedule(): void {
+			if (requestIdle) {
+				requestIdle(step);
 			} else {
-				// Node
-				path = './dictionaries';
-			}
-
-			const affPath = path + "/" + dictionary + "/" + dictionary + ".aff";
-			const dicPath = path + "/" + dictionary + "/" + dictionary + ".dic";
-
-			if (!affData) {
-				// The .aff file's SET line declares the charset of both files, so it has to
-				// be read before the .dic file. It's read as UTF-8 first, which is what most
-				// dictionaries use. If it declares another charset, both files are read
-				// again in that charset.
-				readDataFile(affPath, function (data: string): void {
-					const charset = self._getCharset(data);
-
-					if (charset === "utf8") {
-						setAffData(data);
-					}
-					else {
-						readDataFile(affPath, setAffData, charset);
-					}
-
-					if (!wordsData) {
-						readDataFile(dicPath, setWordsData, charset);
-					}
-				}, "utf8");
-			}
-			else if (!wordsData) {
-				readDataFile(dicPath, setWordsData, self._getCharset(affData as string));
+				setTimeout(() => step(), 0);
 			}
 		}
-	}
 
-	function readDataFile(url: string, setFunc: Function, charset: string): void {
-		const response = self._readFile(url, charset, settings?.asyncLoad);
+		schedule();
+	});
+}
 
-		if (settings?.asyncLoad) {
-			response.then(function(data: string): void {
-				setFunc(data);
-			});
+/* ------------------------------------------------------------------------------------------------
+ * Typo
+ * ---------------------------------------------------------------------------------------------- */
+
+export class Typo {
+	/** The locale code the dictionary was loaded for, e.g. "en_US". */
+	dictionary: string | null = null;
+	/** True once the dictionary has been parsed and the checker can be used. */
+	loaded = false;
+
+	/**
+	 * PFX and SFX rules, keyed by flag. If a flag names both a prefix rule and a suffix
+	 * rule, this holds the one defined last; both are applied when checking words.
+	 */
+	rules: Record<string, AffixRule> = {};
+	/** Stems and their flags. */
+	dictionaryTable: DictionaryTable = new Map();
+	/** COMPOUNDRULE patterns, as written in the .aff file. */
+	compoundRules: string[] = [];
+	/** REP table: pairs of [misspelling, correction]. */
+	replacementTable: [string, string][] = [];
+	/** Every other .aff directive, keyed by name, e.g. flags.NOSUGGEST === "!". */
+	flags: Record<string, string>;
+	/** Cached results of suggest(), keyed by the misspelled word. */
+	memoized: Record<string, MemoizedSuggestions> = Object.create(null);
+	/**
+	 * Characters tried when generating suggestions. Built the first time suggest() has to
+	 * generate edits; a correctly spelled word or a REP table match leaves it empty.
+	 */
+	alphabet = "";
+
+	private flagMode: FlagMode = "char";
+	private flagAliases: string[] = [];
+	private conditionCache: Map<string, RegExp | null> = new Map();
+	private suffixTrie: TrieNode = { children: null, groups: null };
+	private prefixTrie: TrieNode = { children: null, groups: null };
+	private suffixGroups: AffixGroup[] = [];
+	private prefixGroups: AffixGroup[] = [];
+	/** For each flag, the suffix entries that carry it on as a continuation flag. */
+	private continuationIndex: Map<string, AffixEntry[]> = new Map();
+	private compiledCompoundRules: CompoundRule[] = [];
+	/** First characters of every stem that can begin a compound; prunes compound checks. */
+	private compoundStarts: Set<string> = new Set();
+	/** One-character stems that can end a compound. */
+	private compoundSingleEnds: Set<string> = new Set();
+	/** Flags that can begin / end a COMPOUNDRULE pattern, and all flags used by patterns. */
+	private compoundStartFlags: Set<string> = new Set();
+	private compoundEndFlags: Set<string> = new Set();
+	private compoundFlags: Set<string> = new Set();
+	/** Characters that occur in stems usable in compounds (ASCII bitmap plus other codes). */
+	private compoundChars = new Uint8Array(128);
+	private compoundCharsHigh: Set<number> = new Set();
+	/** See buildPruneIndex(). */
+	private startPairs = new Uint8Array(0);
+	private endPairs = new Uint8Array(0);
+	private startWild = new Uint8Array(128);
+	private endWild = new Uint8Array(128);
+	private pruneStart = false;
+	private inputConversion: ConversionTable | null = null;
+	private outputConversion: ConversionTable | null = null;
+	private alphabetLetters: string[] = [];
+	private alphabetUpper: string[] = [];
+	private collator = new Intl.Collator();
+
+	/**
+	 * @param dictionary The locale code of the dictionary, e.g. "en_US". Used to locate
+	 *                   the dictionary files when their contents are not supplied.
+	 * @param affData    The contents of the .aff file. Omit to have it loaded from disk/URL.
+	 * @param wordsData  The contents of the .dic file. Omit to have it loaded from disk/URL.
+	 * @param settings   See TypoSettings.
+	 */
+	constructor(
+		dictionary?: string | null,
+		affData?: string | false | null,
+		wordsData?: string | false | null,
+		settings?: TypoSettings | null
+	) {
+		const options: TypoSettings = (settings && typeof settings === "object") ? settings : {};
+
+		this.flags = options.flags ? { ...options.flags } : {};
+
+		if (!dictionary) {
+			return;
 		}
-		else {
-			setFunc(response);
+
+		this.dictionary = dictionary;
+
+		const reportError = (error: unknown): void => {
+			if (options.errorCallback) {
+				options.errorCallback(error);
+			} else {
+				console.error("Typo.js: error while loading dictionary.", error);
+			}
+		};
+
+		if (affData && wordsData) {
+			const result = this.setup(affData, wordsData, options);
+
+			if (result) {
+				result.catch(reportError);
+			}
+
+			return;
 		}
-	}
 
-	function setAffData(data: string): void {
-		affData = data;
+		const base = this.resolveDictionaryPath(options);
+		const affPath = `${base}/${dictionary}/${dictionary}.aff`;
+		const dicPath = `${base}/${dictionary}/${dictionary}.dic`;
 
-		if (wordsData) {
-			setup();
-		}
-	}
-
-	function setWordsData(data: string): void {
-		wordsData = data;
-
-		if (affData) {
-			setup();
-		}
-	}
-
-	function setup(): void {
-		if (settings?.asyncLoad) {
-			runGenAsync(setupGen()).catch(
-				(err) => console.log(`Dictionary parse error: ${err}`));
+		if (options.asyncLoad) {
+			this.loadFilesAsync(affPath, dicPath, affData || null, wordsData || null, options).catch(reportError);
 		} else {
-			runGenSync(setupGen());
+			this.loadFilesSync(affPath, dicPath, affData || null, wordsData || null, options);
 		}
 	}
 
-	function* setupGen(): Generator<void, void, void> {
-		self.rules = self._parseAFF(affData);
-
-		// Save the rule codes that are used in compound rules.
-		self.compoundRuleCodes = {};
-
-		for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
-			const rule = self.compoundRules[i];
-
-			for (j = 0, _jlen = rule.length; j < _jlen; j++) {
-				self.compoundRuleCodes[rule[j]] = [];
-			}
-		}
-
-		// If we add this ONLYINCOMPOUND flag to self.compoundRuleCodes, then _parseDIC
-		// will do the work of saving the list of words that are compound-only.
-		if ("ONLYINCOMPOUND" in self.flags) {
-			self.compoundRuleCodes[self.flags.ONLYINCOMPOUND] = [];
-		}
-
-		self.dictionaryTable = yield* self._parseDICGen(wordsData);
-
-		// Get rid of any codes from the compound rule codes that are never used
-		// (or that were special regex characters).  Not especially necessary...
-		for (i in self.compoundRuleCodes) {
-			if (self.compoundRuleCodes[i].length === 0) {
-				delete self.compoundRuleCodes[i];
-			}
-		}
-
-		// Build the full regular expressions for each compound rule.
-		// I have a feeling (but no confirmation yet) that this method of
-		// testing for compound words is probably slow.
-		for (i = 0, _len = self.compoundRules.length; i < _len; i++) {
-			const ruleText = self.compoundRules[i];
-
-			let expressionText = "";
-
-			for (j = 0, _jlen = ruleText.length; j < _jlen; j++) {
-				const character = ruleText[j];
-
-				if (character in self.compoundRuleCodes) {
-					expressionText += "(" + self.compoundRuleCodes[character].join("|") + ")";
-				}
-				else {
-					expressionText += character;
-				}
-			}
-
-			self.compoundRules[i] = new RegExp( '^' + expressionText + '$', "i");
-		}
-
-		self.loaded = true;
-
-		if (settings?.asyncLoad && settings?.loadedCallback) {
-			settings.loadedCallback(self);
-		}
+	/**
+	 * Loads a dictionary asynchronously and resolves with the ready Typo instance.
+	 *
+	 * @example const dict = await Typo.load("en_US", { dictionaryPath: "dictionaries" });
+	 */
+	static load(dictionary: string, settings: Omit<TypoSettings, "asyncLoad" | "loadedCallback" | "errorCallback"> = {}): Promise<Typo> {
+		return new Promise((resolve, reject) => {
+			new Typo(dictionary, null, null, {
+				...settings,
+				asyncLoad: true,
+				loadedCallback: resolve,
+				errorCallback: reject
+			});
+		});
 	}
 
-	return this;
-};
+	/* --------------------------------------------------------------------------------------------
+	 * Loading
+	 * ------------------------------------------------------------------------------------------ */
 
-Typo.prototype = {
-	/**
-	 * Loads a Typo instance from a hash of all of the Typo properties.
-	 *
-	 * @param {object} obj A hash of Typo properties, probably gotten from a JSON.parse(JSON.stringify(typo_instance)).
-	 */
+	private resolveDictionaryPath(options: TypoSettings): string {
+		const win = (globalThis as any).window;
+		let base: string;
 
-	load : function (obj: Object) {
-		for (let i in obj) {
-			if (obj.hasOwnProperty(i)) {
-				this[i] = (obj as any)[i];
+		if (options.dictionaryPath) {
+			base = options.dictionaryPath;
+		} else if (win) {
+			base = "typo/dictionaries";
+		} else {
+			base = defaultDictionaryPathWithoutWindow();
+		}
+
+		// In a browser extension, paths are relative to the extension root.
+		if (win) {
+			const runtime = (win.chrome && win.chrome.runtime) || (win.browser && win.browser.runtime);
+
+			if (runtime && typeof runtime.getURL === "function") {
+				base = runtime.getURL(base);
 			}
 		}
 
-		return this;
-	},
+		return base.replace(/\/+$/, "");
+	}
+
+	private loadFilesSync(affPath: string, dicPath: string, affData: string | null, wordsData: string | null, options: TypoSettings): void {
+		if (!affData) {
+			affData = this._readFile(affPath);
+
+			const charset = this._getCharset(affData);
+
+			if (charset !== "utf8") {
+				// The .aff file declares the charset of both files; re-read it in that charset.
+				affData = this._readFile(affPath, charset);
+			}
+		}
+
+		if (!wordsData) {
+			wordsData = this._readFile(dicPath, this._getCharset(affData));
+		}
+
+		this.setup(affData, wordsData, options);
+	}
+
+	private async loadFilesAsync(affPath: string, dicPath: string, affData: string | null, wordsData: string | null, options: TypoSettings): Promise<void> {
+		if (!affData) {
+			affData = await this._readFile(affPath, undefined, true);
+
+			const charset = this._getCharset(affData);
+
+			if (charset !== "utf8") {
+				affData = await this._readFile(affPath, charset, true);
+			}
+		}
+
+		if (!wordsData) {
+			wordsData = await this._readFile(dicPath, this._getCharset(affData), true);
+		}
+
+		await this.setup(affData, wordsData, options);
+	}
 
 	/**
-	 * Read the contents of a file.
+	 * Reads a file, as text. Uses XMLHttpRequest/fetch in browsers and the fs module in Node.js.
 	 *
-	 * @param {string} path The path (relative) to the file.
-	 * @param {string} [charset="utf8"] The charset of the file, as named on the .aff file's
-	 *                                   SET line (e.g. "UTF-8" or "ISO8859-1").
-	 * @param {boolean} async If true, the file will be read asynchronously. For node.js this does nothing, all
-	 *        files are read synchronously.
-	 * @returns {string} The file data if async is false, otherwise a promise object. If running node.js, the data is
-	 *          always returned.
+	 * @param path    The path or URL of the file.
+	 * @param charset The file's charset, as named on the .aff file's SET line. Defaults to UTF-8.
+	 * @param async   If true, a promise for the contents is returned instead of the contents.
 	 */
+	_readFile(path: string, charset?: string | null): string;
+	_readFile(path: string, charset: string | null | undefined, async: true): Promise<string>;
+	_readFile(path: string, charset?: string | null, async?: boolean): string | Promise<string>;
+	_readFile(path: string, charset?: string | null, async?: boolean): string | Promise<string> {
+		const encoding = charset || "utf8";
 
-	_readFile : function (path: string, charset?: string, async?: boolean): string | Promise<void> {
-		charset = charset || "utf8";
+		if (isNode()) {
+			const fs = nodeFs();
 
-		if (typeof XMLHttpRequest !== 'undefined') {
-			const req = new XMLHttpRequest();
-			req.open("GET", path, !! async);
-			req.overrideMimeType?.("text/plain; charset=" + charset);
+			if (!fs) {
+				throw new Error("Typo.js: the fs module is not available; pass the dictionary contents to the constructor instead.");
+			}
 
-			if ( !! async ) {
-				let promise: Promise<void> = new Promise(function(resolve: Function, reject: Function): void {
-					req.onload = function(): void {
-						if (req.status === 200) {
-							resolve(req.responseText);
-						}
-						else {
-							reject(req.statusText);
+			if (async) {
+				return fs.promises.readFile(path).then((bytes) => decodeBytes(bytes, encoding));
+			}
+
+			return decodeBytes(fs.readFileSync(path), encoding);
+		}
+
+		if (async && typeof fetch === "function") {
+			return fetch(path).then((response) => {
+				if (!response.ok) {
+					throw new Error(`Typo.js: could not load ${path} (${response.status} ${response.statusText}).`);
+				}
+
+				return response.arrayBuffer();
+			}).then((buffer) => decodeBytes(new Uint8Array(buffer), encoding));
+		}
+
+		if (typeof XMLHttpRequest === "function") {
+			const request = new XMLHttpRequest();
+
+			request.open("GET", path, !!async);
+
+			if (typeof request.overrideMimeType === "function") {
+				request.overrideMimeType("text/plain; charset=" + normalizeCharset(encoding));
+			}
+
+			if (async) {
+				return new Promise((resolve, reject) => {
+					request.onload = () => {
+						if (request.status === 200 || (request.status === 0 && request.responseText)) {
+							resolve(request.responseText);
+						} else {
+							reject(new Error(`Typo.js: could not load ${path} (${request.status} ${request.statusText}).`));
 						}
 					};
-
-					req.onerror = function(): void {
-						reject(req.statusText);
-					}
+					request.onerror = () => reject(new Error(`Typo.js: could not load ${path}.`));
+					request.send(null);
 				});
-
-				req.send(null);
-
-				return promise;
-			}
-			else {
-				req.send(null);
-
-				return req.responseText;
-			}
-		}
-		else if (typeof require !== 'undefined') {
-			// Node.js
-			const fs = require("fs");
-
-			try {
-				if (fs.existsSync(path)) {
-					if (/^utf-?8$/i.test(charset)) {
-						return fs.readFileSync(path, "utf8");
-					}
-
-					// Hunspell charset names such as "ISO8859-1" aren't valid Node.js
-					// encodings, but TextDecoder understands them.
-					const bytes = fs.readFileSync(path);
-
-					try {
-						return new TextDecoder(charset).decode(bytes);
-					} catch (e) {
-						console.log("Unsupported charset " + charset + "; reading " + path + " as UTF-8.");
-
-						return bytes.toString("utf8");
-					}
-				}
-				else {
-					console.log("Path " + path + " does not exist.");
-				}
-			} catch (e) {
-				console.log(e);
 			}
 
-			return '';
+			request.send(null);
+
+			if (request.status !== 200 && !(request.status === 0 && request.responseText)) {
+				throw new Error(`Typo.js: could not load ${path} (${request.status} ${request.statusText}).`);
+			}
+
+			return request.responseText;
 		}
 
-		return '';
-	},
+		throw new Error("Typo.js: no way to read files in this environment; pass the dictionary contents to the constructor instead.");
+	}
 
 	/**
 	 * Determines the charset of a dictionary from the SET line of its .aff file.
 	 *
-	 * @param {string} affData The data from the dictionary's .aff file.
-	 * @returns {string} "utf8", or the charset name as written in the .aff file.
+	 * @returns "utf8", or the charset name exactly as written in the file.
 	 */
-
-	_getCharset : function (affData: string): string {
+	_getCharset(affData: string): string {
 		const match = affData.match(/^[ \t]*SET[ \t]+(\S+)/m);
 
 		if (!match || /^utf-?8$/i.test(match[1])) {
@@ -440,940 +659,1770 @@ Typo.prototype = {
 		}
 
 		return match[1];
-	},
+	}
+
+	private setup(affData: string, wordsData: string, options: TypoSettings): void | Promise<void> {
+		const parse = this.setupGenerator(affData, wordsData);
+
+		if (!options.asyncLoad) {
+			while (!parse.next().done) {
+				// Run to completion.
+			}
+
+			return;
+		}
+
+		return runInSlices(parse).then(() => {
+			if (options.loadedCallback) {
+				options.loadedCallback(this);
+			}
+		});
+	}
+
+	private *setupGenerator(affData: string, wordsData: string): Generator<void, void, void> {
+		this.rules = this._parseAFF(affData);
+		yield;
+		this.dictionaryTable = yield* this.parseDicGenerator(wordsData);
+		yield;
+		this.buildPruneIndex();
+		this.loaded = true;
+	}
+
+	/* --------------------------------------------------------------------------------------------
+	 * Affix file parsing
+	 * ------------------------------------------------------------------------------------------ */
 
 	/**
-	 * Parse the rules out from a .aff file.
-	 *
-	 * @param {string} data The contents of the affix file.
-	 * @returns object The rules from the file.
+	 * Removes a comment from a line of an affix file. Only whole-line comments are
+	 * removed, because "#" is a legitimate flag character in some dictionaries.
 	 */
+	_removeAffixComments(line: string): string {
+		return /^\s*#/.test(line) ? "" : line;
+	}
 
-	_parseAFF : function (data: string): HashMap {
-		let rules: HashMap = {};
+	/**
+	 * Parses an affix file. Besides returning the PFX/SFX rules, this fills in
+	 * compoundRules, replacementTable, flags and the conversion tables.
+	 */
+	_parseAFF(data: string): Record<string, AffixRule> {
+		const rules: Record<string, AffixRule> = {};
+		// One flag can name both a prefix rule and a suffix rule, so the rules are tracked
+		// per type here; `rules` can only hold the one that was defined last.
+		const rulesByType = new Map<string, AffixRule>();
+		const lines = data.replace(/^\uFEFF/, "").split(/\r?\n/);
+		const inputConversions: ConversionEntry[] = [];
+		const outputConversions: ConversionEntry[] = [];
 
-		const inputConversionEntries: ConversionEntry[] = [];
-		const outputConversionEntries: ConversionEntry[] = [];
+		// A FLAG directive may already be set through settings.flags; the file can override it.
+		this.flagMode = this.parseFlagMode(this.flags.FLAG);
+		this.flagAliases = [];
+		this.conditionCache = new Map();
+		this.compoundRules = [];
+		this.replacementTable = [];
 
-		let line, subline, numEntries, lineParts;
-		let i, j, _len, _jlen;
+		// Directives whose header line gives the number of table lines that follow.
+		const tables = new Set(["REP", "ICONV", "OCONV", "COMPOUNDRULE", "AF", "AM", "MAP", "BREAK", "PHONE", "CHECKCOMPOUNDPATTERN"]);
 
-		const lines = data.split(/\r?\n/);
+		let i = 0;
 
-		for (i = 0, _len = lines.length; i < _len; i++) {
-			// Remove comment lines
-			line = this._removeAffixComments(lines[i]);
-			line = line.trim();
+		const nextTableLine = (directive: string, flag?: string): string[] | null => {
+			// Returns the parts of the next non-blank line if it belongs to the table, and
+			// advances past it. Lines that do not belong are left for the main loop.
+			let j = i + 1;
 
-			if ( ! line ) {
+			while (j < lines.length && !this._removeAffixComments(lines[j]).trim()) {
+				j++;
+			}
+
+			if (j >= lines.length) {
+				return null;
+			}
+
+			const parts = lines[j].trim().split(/\s+/);
+
+			if (parts[0] !== directive || (flag !== undefined && parts[1] !== flag)) {
+				return null;
+			}
+
+			i = j;
+
+			return parts;
+		};
+
+		for (; i < lines.length; i++) {
+			const line = this._removeAffixComments(lines[i]).trim();
+
+			if (!line) {
 				continue;
 			}
 
-			const definitionParts = line.split(/\s+/);
+			const parts = line.split(/\s+/);
+			const directive = parts[0];
 
-			const ruleType = definitionParts[0];
+			if (directive === "PFX" || directive === "SFX") {
+				const flag = parts[1];
+				const crossProduct = parts[2] === "Y";
+				let count = parseInt(parts[3], 10);
 
-			if (ruleType === "PFX" || ruleType === "SFX") {
-				const ruleCode = definitionParts[1];
-				const combineable = definitionParts[2];
-				numEntries = parseInt(definitionParts[3], 10);
+				if (!flag || isNaN(count)) {
+					continue;
+				}
 
-				let entries: AffixEntry[] = [];
+				const ruleKey = directive + " " + flag;
+				let rule = rulesByType.get(ruleKey);
 
-				for (j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
-					subline = lines[j];
+				if (!rule) {
+					rule = { type: directive, crossProduct, entries: [] };
+					rulesByType.set(ruleKey, rule);
+				}
 
-					lineParts = subline.split(/\s+/);
-					const charactersToRemove = lineParts[2];
+				rules[flag] = rule;
 
-					const additionParts = lineParts[3].split("/");
+				while (count-- > 0) {
+					const entryParts = nextTableLine(directive, flag);
 
-					let charactersToAdd = additionParts[0];
-					if (charactersToAdd === "0") charactersToAdd = "";
-
-					const continuationClasses = this.parseRuleCodes(additionParts[1]);
-
-					const regexToMatch = lineParts[4];
-
-					let entry: AffixEntry = {
-						add : charactersToAdd
-					};
-
-					if (continuationClasses.length > 0) entry.continuationClasses = continuationClasses;
-
-					if (regexToMatch !== ".") {
-						if (ruleType === "SFX") {
-							entry.match = new RegExp(regexToMatch + "$");
-						}
-						else {
-							entry.match = new RegExp("^" + regexToMatch);
-						}
+					if (!entryParts) {
+						break;
 					}
 
-					if (charactersToRemove != "0") {
-						if (ruleType === "SFX") {
-							entry.remove = new RegExp(charactersToRemove  + "$");
-						}
-						else {
-							entry.remove = charactersToRemove;
-						}
+					rule.entries.push(this.parseAffixEntry(directive, flag, rule.crossProduct, entryParts));
+				}
+			} else if (directive === "FLAG") {
+				this.flags.FLAG = parts[1];
+				this.flagMode = this.parseFlagMode(parts[1]);
+			} else if (tables.has(directive)) {
+				let count = parseInt(parts[1], 10);
+
+				if (parts.length !== 2 || isNaN(count)) {
+					// A table line without a header; treat it as a one-line table.
+					this.parseTableLine(directive, parts, inputConversions, outputConversions);
+
+					continue;
+				}
+
+				while (count-- > 0) {
+					const tableParts = nextTableLine(directive);
+
+					if (!tableParts) {
+						break;
 					}
 
-					entries.push(entry);
+					this.parseTableLine(directive, tableParts, inputConversions, outputConversions);
 				}
-
-				rules[ruleCode] = { "type" : ruleType, "combineable" : (combineable === "Y"), "entries" : entries } as AffixRule;
-
-				i += numEntries;
-			}
-			else if (ruleType === "COMPOUNDRULE") {
-				numEntries = parseInt(definitionParts[1], 10);
-
-				for (j = i + 1, _jlen = i + 1 + numEntries; j < _jlen; j++) {
-					line = lines[j];
-
-					lineParts = line.split(/\s+/);
-					this.compoundRules.push(lineParts[1]);
-				}
-
-				i += numEntries;
-			}
-			else if (ruleType === "REP") {
-				lineParts = line.split(/\s+/);
-
-				if (lineParts.length === 3) {
-					this.replacementTable.push([ lineParts[1], lineParts[2] ]);
-				}
-			}
-			else if (ruleType === "ICONV" || ruleType === "OCONV") {
-				// Input (ICONV) and output (OCONV) conversion tables, e.g. "ICONV Æ AE".
-				// The table's header line ("ICONV 2") has only two parts and is skipped.
-				lineParts = line.split(/\s+/);
-
-				if (lineParts.length === 3) {
-					const entries = (ruleType === "ICONV") ? inputConversionEntries : outputConversionEntries;
-
-					entries.push(this._parseConversionEntry(lineParts[1], lineParts[2]));
-				}
-			}
-			else {
-				// ONLYINCOMPOUND
-				// COMPOUNDMIN
-				// FLAG
-				// KEEPCASE
-				// NEEDAFFIX
-
-				this.flags[ruleType] = definitionParts[1];
+			} else {
+				// SET, TRY, KEY, WORDCHARS, COMPOUNDMIN, ONLYINCOMPOUND, KEEPCASE, NOSUGGEST,
+				// NEEDAFFIX, FORBIDDENWORD, PRIORITYSUGGEST, ...
+				this.flags[directive] = parts.slice(1).join(" ");
 			}
 		}
 
-		this.inputConversionTable = this._compileConversionTable(inputConversionEntries);
-		this.outputConversionTable = this._compileConversionTable(outputConversionEntries);
+		this.buildAffixIndexes(rulesByType.values());
+		this.compiledCompoundRules = this.compoundRules.map((pattern) => this.compileCompoundRule(pattern));
+		this.compoundStartFlags = new Set();
+		this.compoundEndFlags = new Set();
+		this.compoundFlags = new Set(this.compiledCompoundRules.flatMap((rule) => rule.items.map((item) => item.flag)));
+
+		for (const rule of this.compiledCompoundRules) {
+			for (let k = 0; k < rule.items.length; k++) {
+				this.compoundStartFlags.add(rule.items[k].flag);
+
+				if (!rule.items[k].optional) {
+					break;
+				}
+			}
+
+			for (let k = rule.items.length - 1; k >= 0; k--) {
+				this.compoundEndFlags.add(rule.items[k].flag);
+
+				if (!rule.items[k].optional) {
+					break;
+				}
+			}
+		}
+
+		this.inputConversion = this.compileConversionTable(inputConversions);
+		this.outputConversion = this.compileConversionTable(outputConversions);
 
 		return rules;
-	},
+	}
+
+	private parseFlagMode(value: string | undefined): FlagMode {
+		switch ((value || "").toLowerCase()) {
+			case "long":
+				return "long";
+			case "num":
+				return "num";
+			case "utf-8":
+			case "utf8":
+				return "utf8";
+			default:
+				return "char";
+		}
+	}
+
+	private parseTableLine(directive: string, parts: string[], inputConversions: ConversionEntry[], outputConversions: ConversionEntry[]): void {
+		switch (directive) {
+			case "REP":
+				if (parts.length >= 3) {
+					this.replacementTable.push([parts[1].replace(/_/g, " "), parts[2].replace(/_/g, " ")]);
+				}
+				break;
+			case "ICONV":
+			case "OCONV":
+				if (parts.length >= 3) {
+					(directive === "ICONV" ? inputConversions : outputConversions).push(this.parseConversionEntry(parts[1], parts[2]));
+				}
+				break;
+			case "COMPOUNDRULE":
+				if (parts.length >= 2) {
+					this.compoundRules.push(parts[1]);
+				}
+				break;
+			case "AF":
+				// Alias numbers are 1-based.
+				this.flagAliases.push(parts[1] || "");
+				break;
+			default:
+				// AM, MAP, BREAK, PHONE, CHECKCOMPOUNDPATTERN: not used by Typo.
+				break;
+		}
+	}
+
+	private parseAffixEntry(type: AffixType, flag: string, crossProduct: boolean, parts: string[]): AffixEntry {
+		const strip = (parts[2] === "0" || parts[2] === undefined) ? "" : parts[2];
+		const [addField, continuationField] = this.splitFlagField(parts[3] || "0");
+		const add = addField === "0" ? "" : addField;
+		const conditionText = parts[4] || ".";
+
+		return {
+			flag,
+			type,
+			crossProduct,
+			strip,
+			add,
+			condition: this.compileCondition(type, conditionText),
+			continuation: continuationField === null ? "" : this.resolveFlags(continuationField)
+		};
+	}
 
 	/**
-	 * Parses one ICONV/OCONV table entry.
-	 *
-	 * As in Hunspell, a leading underscore anchors the pattern to the start of the
-	 * word, a trailing underscore anchors it to the end of the word, and any other
-	 * underscore stands for a space.
-	 *
-	 * @param {string} pattern The text to look for.
-	 * @param {string} replacement The text to replace it with.
-	 * @returns {ConversionEntry}
+	 * Compiles a Hunspell affix condition. Conditions are sequences of literal characters,
+	 * "." (any character) and bracket groups ("[abc]", "[^abc]"); unlike regular expressions,
+	 * nothing else is special and "-" inside brackets is literal.
 	 */
+	private compileCondition(type: AffixType, condition: string): RegExp | null {
+		if (condition === "." || condition === "") {
+			return null;
+		}
 
-	_parseConversionEntry : function (pattern: string, replacement: string): ConversionEntry {
+		// Many entries share a condition; compile each distinct one once.
+		const cacheKey = type + " " + condition;
+		const cached = this.conditionCache.get(cacheKey);
+
+		if (cached !== undefined) {
+			return cached;
+		}
+
+		const compiled = this.compileConditionUncached(type, condition);
+
+		this.conditionCache.set(cacheKey, compiled);
+
+		return compiled;
+	}
+
+	private compileConditionUncached(type: AffixType, condition: string): RegExp | null {
+		let source = "";
+
+		for (let i = 0; i < condition.length; i++) {
+			const ch = condition[i];
+
+			if (ch === "[") {
+				const end = condition.indexOf("]", i + 1);
+
+				if (end === -1) {
+					source += escapeRegExp(ch);
+
+					continue;
+				}
+
+				let members = condition.substring(i + 1, end);
+				let negated = false;
+
+				if (members.startsWith("^")) {
+					negated = true;
+					members = members.substring(1);
+				}
+
+				source += "[" + (negated ? "^" : "") + members.replace(/[\]\\^-]/g, "\\$&") + "]";
+				i = end;
+			} else if (ch === ".") {
+				source += ".";
+			} else {
+				source += escapeRegExp(ch);
+			}
+		}
+
+		try {
+			return new RegExp(type === "SFX" ? source + "$" : "^" + source);
+		} catch {
+			return null;
+		}
+	}
+
+	/** Splits "text/flags" at the first unescaped slash, unescaping "\/" in the text. */
+	private splitFlagField(field: string): [string, string | null] {
+		let slash = -1;
+
+		for (let i = 0; i < field.length; i++) {
+			if (field[i] === "\\") {
+				i++;
+			} else if (field[i] === "/") {
+				slash = i;
+
+				break;
+			}
+		}
+
+		if (slash === -1) {
+			return [field.replace(/\\\//g, "/"), null];
+		}
+
+		return [field.substring(0, slash).replace(/\\\//g, "/"), field.substring(slash + 1)];
+	}
+
+	/** Resolves an AF alias number to its flags; other flag strings are returned unchanged. */
+	private resolveFlags(field: string): string {
+		if (this.flagAliases.length > 0 && /^\d+$/.test(field)) {
+			const alias = this.flagAliases[parseInt(field, 10) - 1];
+
+			if (alias !== undefined) {
+				return alias;
+			}
+		}
+
+		return field;
+	}
+
+	private parseConversionEntry(pattern: string, replacement: string): ConversionEntry {
 		let atStart = false;
 		let atEnd = false;
 
-		if (pattern.length > 1 && pattern[0] === "_") {
+		if (pattern.length > 1 && pattern.startsWith("_")) {
 			atStart = true;
 			pattern = pattern.substring(1);
 		}
 
-		if (pattern.length > 1 && pattern[pattern.length - 1] === "_") {
+		if (pattern.length > 1 && pattern.endsWith("_")) {
 			atEnd = true;
 			pattern = pattern.substring(0, pattern.length - 1);
 		}
 
 		return {
-			pattern : pattern.replace(/_/g, " "),
-			replacement : replacement.replace(/_/g, " "),
-			atStart : atStart,
-			atEnd : atEnd
+			pattern: pattern.replace(/_/g, " "),
+			replacement: replacement.replace(/_/g, " "),
+			atStart,
+			atEnd
 		};
-	},
+	}
 
-	/**
-	 * Compiles the entries of an ICONV/OCONV table into a single regular expression.
-	 *
-	 * Longer patterns are listed first so that, as in Hunspell, the longest match
-	 * at each position wins. Each entry gets its own capture group, which is how
-	 * the replacement callback identifies the entry that matched.
-	 *
-	 * @param {ConversionEntry[]} entries The parsed table entries.
-	 * @returns {ConversionTable|null} The compiled table, or null if the table is empty.
-	 */
-
-	_compileConversionTable : function (entries: ConversionEntry[]): ConversionTable | null {
+	private compileConversionTable(entries: ConversionEntry[]): ConversionTable | null {
 		if (entries.length === 0) {
 			return null;
 		}
 
-		// Array.prototype.sort is stable, so entries with equally long patterns keep
-		// their order from the .aff file.
-		const sorted = entries.slice().sort(function (a: ConversionEntry, b: ConversionEntry): number {
-			return b.pattern.length - a.pattern.length;
-		});
+		// Longest patterns first, so that the longest match at a position wins.
+		const sorted = entries.slice().sort((a, b) => b.pattern.length - a.pattern.length);
+		const anchored = sorted.filter((entry) => entry.atStart || entry.atEnd);
+		const plain = sorted.filter((entry) => !entry.atStart && !entry.atEnd);
+		const replacements = new Map<string, string>();
 
-		const alternatives: string[] = [];
-		const replacements: string[] = [];
-
-		for (let i = 0, _len = sorted.length; i < _len; i++) {
-			const entry = sorted[i];
-			const escapedPattern = entry.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-			alternatives.push((entry.atStart ? "^" : "") + "(" + escapedPattern + ")" + (entry.atEnd ? "$" : ""));
-			replacements.push(entry.replacement);
+		for (const entry of plain) {
+			if (!replacements.has(entry.pattern)) {
+				replacements.set(entry.pattern, entry.replacement);
+			}
 		}
 
 		return {
-			regex : new RegExp(alternatives.join("|"), "g"),
-			replacements : replacements
+			anchored,
+			regex: replacements.size > 0 ? new RegExp([...replacements.keys()].map(escapeRegExp).join("|"), "g") : null,
+			replacements
 		};
-	},
+	}
 
-	/**
-	 * Applies a compiled ICONV/OCONV conversion table to a word.
-	 *
-	 * @param {string} word The word to convert.
-	 * @param {ConversionTable|null} table The compiled conversion table to apply.
-	 * @returns {string} The converted word.
-	 */
-
-	_applyConversionTable : function (word: string, table: ConversionTable | null): string {
+	private applyConversion(word: string, table: ConversionTable | null): string {
 		if (!table) {
 			return word;
 		}
 
-		const replacements = table.replacements;
-
-		return word.replace(table.regex, function (): string {
-			// The entry that matched is the one whose capture group is defined.
-			for (let i = 1, _len = replacements.length; i <= _len; i++) {
-				if (arguments[i] !== undefined) {
-					return replacements[i - 1];
+		for (const entry of table.anchored) {
+			if (entry.atStart && entry.atEnd) {
+				if (word === entry.pattern) {
+					word = entry.replacement;
 				}
-			}
-
-			return arguments[0];
-		});
-	},
-
-	/**
-	 * Removes comments.
-	 *
-	 * @param {string} data A line from an affix file.
-	 * @return {string} The cleaned-up line.
-	 */
-
-	_removeAffixComments : function (line: string): string {
-		// This used to remove any string starting with '#' up to the end of the line,
-		// but some COMPOUNDRULE definitions include '#' as part of the rule.
-		// So, only remove lines that begin with a comment, optionally preceded by whitespace.
-		if ( line.match( /^\s*#/ ) ) {
-			return '';
-		}
-
-		return line;
-	},
-
-	/**
-	 * Parses the words out from the .dic file.
-	 *
-	 * @param {string} data The data from the dictionary file.
-	 * @returns {Map} The lookup table containing all of the words and
-	 *                 word forms from the dictionary.
-	 */
-
-	_parseDIC : function (data: string): Map<string, string[] | null> {
-		return runGenSync(this._parseDICGen(data));
-	},
-
-	_parseDICGen : function* (data: string): Generator<void, Map<string, string[] | null>, void> {
-		data = this._removeDicComments(data);
-
-		const lines = data.split(/\r?\n/);
-		let dictionaryTable = new Map();
-
-		function addWord(word: string, rules: string[]): void {
-			// Some dictionaries will list the same word multiple times with different rule sets.
-			if (!dictionaryTable.has(word)) {
-				dictionaryTable.set(word, null);
-			}
-
-			if (rules.length > 0) {
-				if (dictionaryTable.get(word) === null) {
-					dictionaryTable.set(word, []);
+			} else if (entry.atStart) {
+				if (word.startsWith(entry.pattern)) {
+					word = entry.replacement + word.substring(entry.pattern.length);
 				}
-
-				dictionaryTable.get(word).push(rules);
+			} else if (word.endsWith(entry.pattern)) {
+				word = word.substring(0, word.length - entry.pattern.length) + entry.replacement;
 			}
 		}
 
-		// The first line is the number of words in the dictionary.
-		for (let i = 1, _len = lines.length; i < _len; i++) {
-			if (!(i & 63)) {
-				yield;
+		if (table.regex) {
+			word = word.replace(table.regex, (match) => table.replacements.get(match) ?? match);
+		}
+
+		return word;
+	}
+
+	/**
+	 * Parses a COMPOUNDRULE pattern: a sequence of flags, each optionally followed by
+	 * "*" (zero or more) or "?" (zero or one). Flags longer than one character are
+	 * written in parentheses.
+	 */
+	private compileCompoundRule(pattern: string): CompoundRule {
+		const items: CompoundItem[] = [];
+
+		for (let i = 0; i < pattern.length; i++) {
+			let flag: string;
+
+			if (pattern[i] === "(") {
+				const end = pattern.indexOf(")", i + 1);
+
+				if (end === -1) {
+					flag = pattern[i];
+				} else {
+					flag = pattern.substring(i + 1, end);
+					i = end;
+				}
+			} else {
+				flag = pattern[i];
 			}
 
-			const line = lines[i];
+			const item: CompoundItem = { flag, optional: false, repeatable: false };
 
-			if (!line) {
-				// Ignore empty lines.
-				continue;
+			if (pattern[i + 1] === "*") {
+				item.optional = true;
+				item.repeatable = true;
+				i++;
+			} else if (pattern[i + 1] === "?") {
+				item.optional = true;
+				i++;
 			}
 
-			// The line format is one of:
-			//     word
-			//     word/flags
-			//     word/flags xx:abc yy:def
-			//     word xx:abc yy:def
-			// We don't use the morphological flags (xx:abc, yy:def) and we don't want them included
-			// in the extracted flags.
-			const just_word_and_flags = line.replace(/\s.*$/, '');
+			items.push(item);
+		}
 
-			// just_word_and_flags is definitely one of:
-			//     word
-			//     word/flags
-			const parts = just_word_and_flags.split('/', 2);
-			const word = parts[0];
+		return { pattern, items };
+	}
 
-			// Now for each affix rule, generate that form of the word.
-			if (parts.length > 1) {
-				const ruleCodesArray = this.parseRuleCodes(parts[1]);
+	/** Indexes affix entries by the text they add, so that they can be found from a word. */
+	private buildAffixIndexes(rules: Iterable<AffixRule>): void {
+		this.suffixTrie = { children: null, groups: null };
+		this.prefixTrie = { children: null, groups: null };
+		this.suffixGroups = [];
+		this.prefixGroups = [];
+		this.continuationIndex = new Map();
 
-				// Save the ruleCodes for compound word situations.
-				if (!("NEEDAFFIX" in this.flags) || ruleCodesArray.indexOf(this.flags.NEEDAFFIX) === -1) {
-					addWord(word, ruleCodesArray);
+		const groupsByAdd = { SFX: new Map<string, AffixGroup[]>(), PFX: new Map<string, AffixGroup[]>() };
+
+		for (const rule of rules) {
+			const index = groupsByAdd[rule.type];
+
+			for (const entry of rule.entries) {
+				let groups = index.get(entry.add);
+
+				if (!groups) {
+					groups = [];
+					index.set(entry.add, groups);
 				}
 
-				for (let j = 0, _jlen = ruleCodesArray.length; j < _jlen; j++) {
-					const code = ruleCodesArray[j];
+				let group = groups.find((candidate) => candidate.strip === entry.strip);
 
-					const rule = this.rules[code];
+				if (!group) {
+					group = { add: entry.add, strip: entry.strip, entries: [] };
+					groups.push(group);
+					(rule.type === "SFX" ? this.suffixGroups : this.prefixGroups).push(group);
+				}
 
-					if (rule) {
-						const newWords = this._applyRule(word, rule);
+				group.entries.push(entry);
 
-						for (let ii = 0, _iilen = newWords.length; ii < _iilen; ii++) {
-							const newWord = newWords[ii];
+				if (entry.continuation && rule.type === "SFX") {
+					for (const continued of this.splitFlags(entry.continuation)) {
+						let continuers = this.continuationIndex.get(continued);
 
-							addWord(newWord, []);
-
-							if (rule.combineable) {
-								for (let k = j + 1; k < _jlen; k++) {
-									const combineCode = ruleCodesArray[k];
-
-									const combineRule = this.rules[combineCode];
-
-									if (combineRule) {
-										if (combineRule.combineable && (rule.type != combineRule.type)) {
-											const otherNewWords = this._applyRule(newWord, combineRule);
-
-											for (let iii = 0, _iiilen = otherNewWords.length; iii < _iiilen; iii++) {
-												const otherNewWord = otherNewWords[iii];
-												addWord(otherNewWord, []);
-											}
-										}
-									}
-								}
-							}
+						if (!continuers) {
+							continuers = [];
+							this.continuationIndex.set(continued, continuers);
 						}
-					}
 
-					if (code in this.compoundRuleCodes) {
-						this.compoundRuleCodes[code].push(word);
+						continuers.push(entry);
 					}
 				}
 			}
-			else {
-				addWord(word.trim(), []);
-			}
 		}
 
-		return dictionaryTable;
-	},
+		// Suffixes are looked up from the end of a word, so their trie is keyed by the
+		// reversed added text; prefixes by the added text as is.
+		for (const [add, groups] of groupsByAdd.SFX) {
+			let node = this.suffixTrie;
 
+			for (let i = add.length - 1; i >= 0; i--) {
+				node = trieChild(node, add.charCodeAt(i));
+			}
 
-	/**
-	 * Removes comment lines and then cleans up blank lines and trailing whitespace.
-	 *
-	 * @param {string} data The data from a .dic file.
-	 * @return {string} The cleaned-up data.
-	 */
+			node.groups = groups;
+		}
 
-	_removeDicComments : function (data: string): string {
-		// I can't find any official documentation on it, but at least the de_DE
-		// dictionary uses tab-indented lines as comments.
+		for (const [add, groups] of groupsByAdd.PFX) {
+			let node = this.prefixTrie;
 
-		// Remove comments
-		data = data.replace(/^\t.*$/mg, "");
+			for (let i = 0; i < add.length; i++) {
+				node = trieChild(node, add.charCodeAt(i));
+			}
 
-		return data;
-	},
+			node.groups = groups;
+		}
+	}
 
-	parseRuleCodes : function (textCodes: string): string[] {
-		if (!textCodes) {
+	/* --------------------------------------------------------------------------------------------
+	 * Flags
+	 * ------------------------------------------------------------------------------------------ */
+
+	/** Splits a flag string into its individual flags, according to the FLAG directive. */
+	private splitFlags(flags: string): string[] {
+		if (!flags) {
 			return [];
 		}
-		else if (!("FLAG" in this.flags)) {
-			// The flag symbols are single characters
-			return textCodes.split("");
-		}
-		else if (this.flags.FLAG === "long") {
-			// The flag symbols are two characters long.
-			let flags = [];
 
-			for (let i = 0, _len = textCodes.length; i < _len; i += 2) {
-				flags.push(textCodes.substr(i, 2));
+		switch (this.flagMode) {
+			case "long": {
+				const result: string[] = [];
+
+				for (let i = 0; i < flags.length; i += 2) {
+					result.push(flags.substring(i, i + 2));
+				}
+
+				return result;
 			}
-
-			return flags;
+			case "num":
+				return flags.split(",").filter((flag) => flag !== "");
+			case "utf8":
+				return Array.from(flags);
+			default:
+				return flags.split("");
 		}
-		else if (this.flags.FLAG === "num") {
-			// The flag symbols are a CSV list of numbers.
-			return textCodes.split(",");
-		}
-		else if (this.flags.FLAG === "UTF-8") {
-			// The flags are single UTF-8 characters.
-			// @see https://github.com/cfinke/Typo.js/issues/57
-			return Array.from(textCodes);
-		}
-		else {
-			// It's possible that this fallback case will not work for all FLAG values,
-			// but I think it's more likely to work than not returning anything at all.
-			return textCodes.split("");
-		}
-	},
+	}
 
-	/**
-	 * Applies an affix rule to a word.
-	 *
-	 * @param {string} word The base word.
-	 * @param {Object} rule The affix rule.
-	 * @returns {string[]} The new words generated by the rule.
-	 */
+	/** Public alias of splitFlags(), kept for 1.4.0 compatibility. */
+	parseRuleCodes(flags: string): string[] {
+		return this.splitFlags(flags);
+	}
 
-	_applyRule : function (word: string, rule: AffixRule): string[] {
-		const entries = rule.entries;
-		let newWords: string[] = [];
-
-		for (let i = 0, _len = entries.length; i < _len; i++) {
-			const entry = entries[i];
-
-			if (!entry.match || word.match(entry.match)) {
-				let newWord = word;
-
-				if (entry.remove) {
-					newWord = newWord.replace(entry.remove, "");
-				}
-
-				if (rule.type === "SFX") {
-					newWord = newWord + entry.add;
-				}
-				else {
-					newWord = entry.add + newWord;
-				}
-
-				newWords.push(newWord);
-
-				if ("continuationClasses" in entry) {
-					for (let j = 0, _jlen = entry.continuationClasses!.length; j < _jlen; j++) {
-						const continuationRule = this.rules[entry.continuationClasses![j]];
-
-						if (continuationRule) {
-							newWords = newWords.concat(this._applyRule(newWord, continuationRule));
-						}
-						/*
-						else {
-							// This shouldn't happen, but it does, at least in the de_DE dictionary.
-							// I think the author mistakenly supplied lower-case rule codes instead
-							// of upper-case.
-						}
-						*/
-					}
-				}
-			}
-		}
-
-		return newWords;
-	},
-
-	/**
-	 * Checks whether a word or a capitalization variant exists in the current dictionary.
-	 * The word is trimmed and several variations of capitalizations are checked.
-	 * If you want to check a word without any changes made to it, call checkExact()
-	 *
-	 * @see http://blog.stevenlevithan.com/archives/faster-trim-javascript re:trimming function
-	 *
-	 * @param {string} aWord The word to check.
-	 * @returns {boolean}
-	 */
-
-	check : function (aWord: string): boolean {
-		if (!this.loaded) {
-			throw "Dictionary not loaded.";
-		}
-
-		if (!aWord) {
+	/** Whether a flag string (one .dic entry's flags) contains a flag. */
+	private flagsInclude(flags: string, flag: string): boolean {
+		if (!flags || !flag) {
 			return false;
 		}
 
-		// Remove leading and trailing whitespace, then apply the dictionary's input
-		// conversion table (ICONV).
-		const trimmedWord = this._applyConversionTable(aWord.replace(/^\s\s*/, '').replace(/\s\s*$/, ''), this.inputConversionTable);
+		switch (this.flagMode) {
+			case "long":
+				if (flag.length !== 2) {
+					return flags.includes(flag);
+				}
 
-		return this._checkCaseVariants(trimmedWord);
-	},
+				for (let i = 0; i + 1 < flags.length; i += 2) {
+					if (flags.charCodeAt(i) === flag.charCodeAt(0) && flags.charCodeAt(i + 1) === flag.charCodeAt(1)) {
+						return true;
+					}
+				}
+
+				return false;
+			case "num":
+				return ("," + flags + ",").includes("," + flag + ",");
+			default:
+				return flags.includes(flag);
+		}
+	}
+
+	/** Whether a flag string contains every one of the given flags. */
+	private flagsIncludeAll(flags: string, required: readonly string[]): boolean {
+		for (const flag of required) {
+			if (!this.flagsInclude(flags, flag)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 
 	/**
-	 * Checks whether a word or a capitalization variant exists in the current dictionary.
+	 * Whether a word is flagged with a given flag directive (e.g. "NOSUGGEST").
 	 *
-	 * Unlike check(), the word is used as-is: it is neither trimmed nor passed through
-	 * the input conversion table. suggest() uses this for its candidate words, which are
-	 * built from an already-converted word, so that the conversion isn't repeated for
-	 * every candidate.
-	 *
-	 * @param {string} word The word to check.
-	 * @returns {boolean}
+	 * @param word      The word, exactly as it appears in the dictionary.
+	 * @param flag      The name of the directive that defines the flag.
+	 * @param wordFlags Optional: a flag string, or an array of flag strings, to test instead
+	 *                  of looking the word up.
 	 */
+	hasFlag(word: string, flag: string, wordFlags?: string | readonly string[]): boolean {
+		if (!this.loaded) {
+			throw NOT_LOADED_ERROR;
+		}
 
-	_checkCaseVariants : function (word: string): boolean {
+		const flagValue = this.flags[flag];
+
+		if (flagValue === undefined || flagValue === "") {
+			return false;
+		}
+
+		if (wordFlags !== undefined) {
+			const sets = typeof wordFlags === "string" ? [wordFlags] : wordFlags;
+
+			return sets.some((set) => this.flagsInclude(set, flagValue));
+		}
+
+		const flagSets = this.dictionaryTable.get(word);
+
+		if (!flagSets) {
+			return false;
+		}
+
+		for (const set of flagSets) {
+			if (this.flagsInclude(set, flagValue)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/* --------------------------------------------------------------------------------------------
+	 * Dictionary file parsing
+	 * ------------------------------------------------------------------------------------------ */
+
+	/**
+	 * Parses a .dic file into a dictionary table. The table also becomes this instance's
+	 * dictionaryTable, and the pruning index is rebuilt for it.
+	 */
+	_parseDIC(data: string): DictionaryTable {
+		const parse = this.parseDicGenerator(data);
+		let step = parse.next();
+
+		while (!step.done) {
+			step = parse.next();
+		}
+
+		this.dictionaryTable = step.value;
+		this.buildPruneIndex();
+
+		return step.value;
+	}
+
+	private *parseDicGenerator(data: string): Generator<void, DictionaryTable, void> {
+		const table: DictionaryTable = new Map();
+		const lines = data.replace(/^\uFEFF/, "").split("\n");
+		const compoundStartFlags = this.compoundStartFlags;
+		const compoundEndFlags = this.compoundEndFlags;
+		const compoundFlags = this.compoundFlags;
+		const compoundStarts = this.compoundStarts = new Set<string>();
+		const compoundSingleEnds = this.compoundSingleEnds = new Set<string>();
+		const compoundChars = this.compoundChars = new Uint8Array(128);
+		const compoundCharsHigh = this.compoundCharsHigh = new Set<number>();
+		const hasCompounds = compoundFlags.size > 0;
+		const hasAliases = this.flagAliases.length > 0;
+
+		// The first line holds the number of entries.
+		for (let i = 1; i < lines.length; i++) {
+			if ((i % ASYNC_PARSE_BATCH) === 0) {
+				yield;
+			}
+
+			let line = lines[i];
+
+			if (!line || line.charCodeAt(0) === 9 /* tab */) {
+				// Blank, or a tab-indented comment (as used by the de_DE dictionary).
+				continue;
+			}
+
+			// Drop morphological fields ("po:noun") and trailing whitespace.
+			const space = firstWhitespace(line);
+
+			if (space !== -1) {
+				line = line.substring(0, space);
+
+				if (!line) {
+					continue;
+				}
+			}
+
+			let word: string;
+			let flags = "";
+			const slash = line.indexOf("/");
+
+			if (slash === -1) {
+				word = line;
+			} else if (line.indexOf("\\/") === -1) {
+				word = line.substring(0, slash);
+				flags = line.substring(slash + 1);
+			} else {
+				[word, flags] = this.splitFlagField(line).map((part) => part ?? "") as [string, string];
+			}
+
+			if (hasAliases && flags) {
+				flags = this.resolveFlags(flags);
+			}
+
+			const existing = table.get(word);
+
+			if (existing === undefined) {
+				table.set(word, flags ? [flags] : null);
+			} else if (flags) {
+				if (existing === null) {
+					// Listed earlier without flags; "" records that bare entry.
+					table.set(word, ["", flags]);
+				} else {
+					existing.push(flags);
+				}
+			} else if (existing !== null && !existing.includes("")) {
+				existing.push("");
+			}
+
+			if (flags && hasCompounds && word) {
+				for (const flag of compoundFlags) {
+					if (this.flagsInclude(flags, flag)) {
+						for (let c = 0; c < word.length; c++) {
+							const code = word.charCodeAt(c);
+
+							if (code < 128) {
+								compoundChars[code] = 1;
+							} else {
+								compoundCharsHigh.add(code);
+							}
+						}
+
+						break;
+					}
+				}
+
+				for (const flag of compoundStartFlags) {
+					if (this.flagsInclude(flags, flag)) {
+						compoundStarts.add(word[0]);
+
+						break;
+					}
+				}
+
+				if (word.length === 1) {
+					for (const flag of compoundEndFlags) {
+						if (this.flagsInclude(flags, flag)) {
+							compoundSingleEnds.add(word);
+
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return table;
+	}
+
+	/* --------------------------------------------------------------------------------------------
+	 * Checking
+	 * ------------------------------------------------------------------------------------------ */
+
+	/**
+	 * Checks whether a word is spelled correctly. Surrounding whitespace is ignored, the
+	 * input conversion table (ICONV) is applied, and capitalization variants are tried.
+	 */
+	check(word: string): boolean {
+		if (!this.loaded) {
+			throw NOT_LOADED_ERROR;
+		}
+
 		if (!word) {
 			return false;
 		}
 
-		if (this.checkExact(word)) {
+		const trimmed = word.trim();
+
+		if (!trimmed) {
+			return false;
+		}
+
+		return this.checkCaseVariants(this.applyConversion(trimmed, this.inputConversion));
+	}
+
+	/**
+	 * Checks a word and its capitalization variants exactly as given (no trimming or
+	 * input conversion).
+	 */
+	private checkCaseVariants(word: string): boolean {
+		if (!word) {
+			return false;
+		}
+
+		if (this.acceptsExact(word)) {
 			return true;
 		}
 
-		// The exact word is not in the dictionary.
-		if (word.toUpperCase() === word) {
-			// The word was supplied in all uppercase.
-			// Check for a capitalized form of the word.
-			const capitalizedWord = word[0] + word.substring(1).toLowerCase();
+		if (isAllUpperCase(word)) {
+			// All caps: the word may be a capitalized or lowercase word.
+			const capitalized = word[0] + word.substring(1).toLowerCase();
 
-			if (this.hasFlag(capitalizedWord, "KEEPCASE")) {
-				// Capitalization variants are not allowed for this word.
+			if (this.hasFlag(capitalized, "KEEPCASE")) {
 				return false;
 			}
 
-			if (this.checkExact(capitalizedWord)) {
-				// The all-caps word is a capitalized word spelled correctly.
+			if (this.acceptsExact(capitalized)) {
 				return true;
 			}
 
-			if (this.checkExact(word.toLowerCase())) {
-				// The all-caps is a lowercase word spelled correctly.
+			if (this.acceptsExact(word.toLowerCase())) {
 				return true;
 			}
 		}
 
-		const uncapitalizedWord = word[0].toLowerCase() + word.substring(1);
+		if (hasUpperCaseInitial(word)) {
+			const uncapitalized = word[0].toLowerCase() + word.substring(1);
 
-		if (uncapitalizedWord !== word) {
-			if (this.hasFlag(uncapitalizedWord, "KEEPCASE")) {
-				// Capitalization variants are not allowed for this word.
+			if (this.hasFlag(uncapitalized, "KEEPCASE")) {
 				return false;
 			}
 
-			// Check for an uncapitalized form
-			if (this.checkExact(uncapitalizedWord)) {
-				// The word is spelled correctly but with the first letter capitalized.
+			if (this.acceptsExact(uncapitalized)) {
 				return true;
 			}
 		}
 
 		return false;
-	},
+	}
 
 	/**
-	 * Checks whether a word exists in the current dictionary.
-	 *
-	 * @param {string} word The word to check.
-	 * @returns {boolean}
+	 * Checks whether a word, exactly as given, is a stem in the dictionary, an affixed
+	 * form of a stem, or a compound word allowed by the COMPOUNDRULE table.
 	 */
-
-	checkExact : function (word: string): boolean {
+	checkExact(word: string): boolean {
 		if (!this.loaded) {
-			throw "Dictionary not loaded.";
+			throw NOT_LOADED_ERROR;
 		}
 
-		const ruleCodes = this.dictionaryTable.get(word);
+		return !!word && this.acceptsExact(word);
+	}
 
-		let i, _len;
+	private acceptsExact(word: string): boolean {
+		if (!this.mayBeKnown(word)) {
+			return false;
+		}
 
-		if (typeof ruleCodes === 'undefined') {
-			// Check if this might be a compound word.
-			if ("COMPOUNDMIN" in this.flags && word.length >= this.flags.COMPOUNDMIN) {
-				for (i = 0, _len = this.compoundRules.length; i < _len; i++) {
-					if (word.match(this.compoundRules[i])) {
+		if (this.isAcceptedStem(word)) {
+			return true;
+		}
+
+		if (this.hasSuffixedForm(word, EMPTY_FLAGS, false)) {
+			return true;
+		}
+
+		if (this.hasPrefixedForm(word)) {
+			return true;
+		}
+
+		return this.compiledCompoundRules.length > 0 && this.isCompound(word);
+	}
+
+	/**
+	 * A quick test that rejects most words the dictionary cannot possibly accept: every
+	 * accepted word starts and ends with a pair of characters that occurs at the start or
+	 * end of some stem or affix (see buildPruneIndex()). Only ASCII pairs are tested.
+	 */
+	private mayBeKnown(word: string): boolean {
+		const length = word.length;
+
+		if (length < 2) {
+			return true;
+		}
+
+		if (this.pruneStart) {
+			const first = word.charCodeAt(0);
+			const second = word.charCodeAt(1);
+
+			if (first < 128 && second < 128 && this.startWild[first] === 0) {
+				const key = (first << 7) | second;
+
+				if ((this.startPairs[key >> 3] & (1 << (key & 7))) === 0) {
+					return false;
+				}
+			}
+		}
+
+		// Unlike the test on word beginnings, the test on word endings always applies.
+		const last = word.charCodeAt(length - 1);
+		const beforeLast = word.charCodeAt(length - 2);
+
+		if (last < 128 && beforeLast < 128 && this.endWild[last] === 0) {
+			const key = (beforeLast << 7) | last;
+
+			if ((this.endPairs[key >> 3] & (1 << (key & 7))) === 0) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/** Whether the word is listed in the dictionary as a word in its own right. */
+	private isAcceptedStem(word: string): boolean {
+		const flagSets = this.dictionaryTable.get(word);
+
+		if (flagSets === undefined) {
+			return false;
+		}
+
+		if (flagSets === null) {
+			return true;
+		}
+
+		const flags = this.flags;
+		const onlyInCompound = flags.ONLYINCOMPOUND;
+		const needAffix = flags.NEEDAFFIX;
+		const forbidden = flags.FORBIDDENWORD;
+
+		for (let i = 0; i < flagSets.length; i++) {
+			const set = flagSets[i];
+
+			if (!set) {
+				return true;
+			}
+
+			if (onlyInCompound && this.flagsInclude(set, onlyInCompound)) {
+				continue;
+			}
+
+			if (needAffix && this.flagsInclude(set, needAffix)) {
+				continue;
+			}
+
+			if (forbidden && this.flagsInclude(set, forbidden)) {
+				continue;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether one of a stem's flag sets contains a flag, plus any further required flags,
+	 * and is not a FORBIDDENWORD entry.
+	 */
+	private flagSetsHave(flagSets: readonly string[], flag: string, required: readonly string[] = EMPTY_FLAGS): boolean {
+		const forbidden = this.flags.FORBIDDENWORD;
+
+		for (let i = 0; i < flagSets.length; i++) {
+			const set = flagSets[i];
+
+			if (!set || !this.flagsInclude(set, flag)) {
+				continue;
+			}
+
+			if (required.length > 0 && !this.flagsIncludeAll(set, required)) {
+				continue;
+			}
+
+			if (forbidden && this.flagsInclude(set, forbidden)) {
+				continue;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether the word can be produced by adding one or two suffixes to a stem.
+	 *
+	 * @param word     The word (possibly with a prefix already stripped).
+	 * @param required Flags that the stem must carry unless a suffix carries them on as
+	 *                 continuation flags (e.g. the flag of a stripped prefix).
+	 * @param cross    Whether only cross-product suffixes may be used (set when a prefix
+	 *                 has been stripped).
+	 */
+	private hasSuffixedForm(word: string, required: readonly string[], cross: boolean): boolean {
+		const length = word.length;
+		let node: TrieNode | undefined = this.suffixTrie;
+
+		// Walk the trie of reversed suffixes from the end of the word; every node with
+		// groups marks a suffix that the word ends with.
+		for (let stripped = 0; node !== undefined; stripped++) {
+			const groups = node.groups;
+
+			if (groups !== null) {
+				const base = stripped === 0 ? word : word.substring(0, length - stripped);
+
+				for (let g = 0; g < groups.length; g++) {
+					const group = groups[g];
+					const stem = group.strip ? base + group.strip : base;
+
+					if (stem && this.suffixGroupMatches(group, stem, required, cross)) {
 						return true;
 					}
 				}
 			}
-		}
-		else if (ruleCodes === null) {
-			// a null (but not undefined) value for an entry in the dictionary table
-			// means that the word is in the dictionary but has no flags.
-			return true;
-		}
-		else if (typeof ruleCodes === 'object') { // this.dictionary['hasOwnProperty'] will be a function.
-			for (i = 0, _len = ruleCodes.length; i < _len; i++) {
-				if (!this.hasFlag(word, "ONLYINCOMPOUND", ruleCodes[i])) {
-					return true;
-				}
+
+			if (stripped === length || node.children === null) {
+				break;
 			}
+
+			node = node.children.get(word.charCodeAt(length - 1 - stripped));
 		}
 
 		return false;
-	},
+	}
 
-	/**
-	 * Looks up whether a given word is flagged with a given flag.
-	 *
-	 * @param {string} word The word in question.
-	 * @param {string} flag The flag in question.
-	 * @return {boolean}
-	 */
+	/** Whether one of a group's suffixes, removed from the word, leaves a stem (or a suffixed stem). */
+	private suffixGroupMatches(group: AffixGroup, stem: string, required: readonly string[], cross: boolean): boolean {
+		const flagSets = this.dictionaryTable.get(stem);
+		const entries = group.entries;
 
-	hasFlag : function (word: string, flag: string, wordFlags?: string[]): boolean {
-		if (!this.loaded) {
-			throw "Dictionary not loaded.";
-		}
+		for (let e = 0; e < entries.length; e++) {
+			const entry = entries[e];
 
-		if (flag in this.flags) {
-			if (typeof wordFlags === 'undefined') {
-				wordFlags = Array.prototype.concat.apply([], this.dictionaryTable.get(word));
+			// Suffixes that carry this suffix's flag on; the stem may be one of their forms.
+			const continuers = this.continuationIndex.get(entry.flag);
+
+			if (flagSets === undefined && continuers === undefined) {
+				continue;
 			}
 
-			if (wordFlags && wordFlags.indexOf(this.flags[flag]) !== -1) {
+			// Required flags not carried by this suffix's continuation flags must be on the stem.
+			const rest = required.length === 0 ? EMPTY_FLAGS : this.flagsNotCarried(required, entry.continuation);
+
+			// A suffix that does not combine with prefixes still takes a prefix that its own
+			// continuation flags name.
+			if (cross && !entry.crossProduct && rest.length > 0) {
+				continue;
+			}
+
+			if (entry.condition !== null && !entry.condition.test(stem)) {
+				continue;
+			}
+
+			if (flagSets && this.flagSetsHave(flagSets, entry.flag, rest)) {
+				return true;
+			}
+
+			if (continuers !== undefined && this.hasContinuedForm(stem, rest, cross, continuers)) {
 				return true;
 			}
 		}
 
 		return false;
-	},
+	}
 
 	/**
-	 * Returns a list of suggestions for a misspelled word.
-	 *
-	 * @see http://www.norvig.com/spell-correct.html for the basis of this suggestor.
-	 * This suggestor is primitive, but it works.
-	 *
-	 * @param {string} word The misspelling.
-	 * @param {number} [limit=5] The maximum number of suggestions to return.
-	 * @returns {string[]} The array of suggestions.
+	 * Whether the (already suffix-stripped) word can be produced by one of the given
+	 * suffixes, all of which carry the stripped suffix's flag as a continuation flag.
 	 */
+	private hasContinuedForm(word: string, required: readonly string[], cross: boolean, continuers: AffixEntry[]): boolean {
+		const length = word.length;
 
-	alphabet : "",
+		for (let i = 0; i < continuers.length; i++) {
+			const entry = continuers[i];
 
-	suggest : function (word: string, limit: number): string[] {
-		if (!this.loaded) {
-			throw "Dictionary not loaded.";
-		}
+			if (cross && !entry.crossProduct) {
+				continue;
+			}
 
-		limit = limit || 5;
+			const addLength = entry.add.length;
 
-		if (this.memoized.hasOwnProperty(word)) {
-			const memoizedLimit = this.memoized[word]['limit'];
+			if (addLength > 0 && !word.endsWith(entry.add)) {
+				continue;
+			}
 
-			// Only return the cached list if it's big enough or if there weren't enough suggestions
-			// to fill a smaller limit.
-			if (limit <= memoizedLimit || this.memoized[word]['suggestions'].length < memoizedLimit) {
-				return this.memoized[word]['suggestions'].slice(0, limit);
+			const stem = (addLength > 0 ? word.substring(0, length - addLength) : word) + entry.strip;
+
+			if (!stem) {
+				continue;
+			}
+
+			const flagSets = this.dictionaryTable.get(stem);
+
+			if (!flagSets) {
+				continue;
+			}
+
+			if (entry.condition !== null && !entry.condition.test(stem)) {
+				continue;
+			}
+
+			const rest = required.length === 0 ? EMPTY_FLAGS : this.flagsNotCarried(required, entry.continuation);
+
+			if (this.flagSetsHave(flagSets, entry.flag, rest)) {
+				return true;
 			}
 		}
 
-		if (this.check(word)) return [];
+		return false;
+	}
 
-		const self = this;
+	/** The required flags that an affix's continuation flags do not supply. */
+	private flagsNotCarried(required: readonly string[], continuation: string): readonly string[] {
+		if (!continuation) {
+			return required;
+		}
 
-		// Suggestions are built from the input-converted word (ICONV) and are
-		// passed through the output conversion table (OCONV) before being returned.
-		const convertedWord = this._applyConversionTable(word, this.inputConversionTable);
+		let rest: string[] | null = null;
 
-		function outputConvert(suggestions: string[]): string[] {
-			const converted: string[] = [];
+		for (let i = 0; i < required.length; i++) {
+			const carried = this.flagsInclude(continuation, required[i]);
 
-			for (let i = 0, _len = suggestions.length; i < _len; i++) {
-				const suggestion = self._applyConversionTable(suggestions[i], self.outputConversionTable);
+			if (rest === null && carried) {
+				rest = required.slice(0, i);
+			} else if (rest !== null && !carried) {
+				rest.push(required[i]);
+			}
+		}
 
-				// Output conversion can map distinct suggestions onto the same string.
-				if (converted.indexOf(suggestion) === -1) {
-					converted.push(suggestion);
+		return rest === null ? required : rest;
+	}
+
+	/** Whether the word can be produced by adding a prefix, optionally plus suffixes, to a stem. */
+	private hasPrefixedForm(word: string): boolean {
+		const length = word.length;
+		let node: TrieNode | undefined = this.prefixTrie;
+
+		for (let stripped = 0; node !== undefined; stripped++) {
+			const groups = node.groups;
+
+			if (groups !== null) {
+				const base = stripped === 0 ? word : word.substring(stripped);
+
+				for (let g = 0; g < groups.length; g++) {
+					const group = groups[g];
+					const rest = group.strip ? group.strip + base : base;
+
+					if (rest && this.prefixGroupMatches(group, rest)) {
+						return true;
+					}
 				}
 			}
 
-			return converted;
+			if (stripped === length || node.children === null) {
+				break;
+			}
+
+			node = node.children.get(word.charCodeAt(stripped));
 		}
 
-		// Check the replacement table.
-		for (let i = 0, _len = this.replacementTable.length; i < _len; i++) {
-			const replacementEntry = this.replacementTable[i];
+		return false;
+	}
 
-			if (convertedWord.indexOf(replacementEntry[0]) !== -1) {
-				const correctedWord = convertedWord.replace(replacementEntry[0], replacementEntry[1]);
+	private prefixGroupMatches(group: AffixGroup, rest: string): boolean {
+		const flagSets = this.dictionaryTable.get(rest);
+		const entries = group.entries;
+		let requiredFlags: string[] | null = null;
 
-				if (this._checkCaseVariants(correctedWord)) {
-					return outputConvert([ correctedWord ]);
+		for (let e = 0; e < entries.length; e++) {
+			const entry = entries[e];
+
+			if (entry.condition !== null && !entry.condition.test(rest)) {
+				continue;
+			}
+
+			if (flagSets && this.flagSetsHave(flagSets, entry.flag)) {
+				return true;
+			}
+
+			// Prefix and suffix on the same stem (cross product). The prefix's flag may be
+			// carried by the suffix's continuation flags instead of the stem.
+			if (entry.crossProduct) {
+				if (requiredFlags === null || requiredFlags[0] !== entry.flag) {
+					requiredFlags = [entry.flag];
+				}
+
+				if (this.hasSuffixedForm(rest, requiredFlags, true)) {
+					return true;
 				}
 			}
-		}
 
-		if (!this.alphabet) {
-			// Use the English alphabet as the default. Problematic, but backwards-compatible.
-			this.alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-			// Any characters defined in the affix file as substitutions can go in the alphabet too.
-			// Note that dictionaries do not include the entire alphabet in the TRY flag when it's there.
-			// For example, Q is not in the default English TRY list; that's why having the default
-			// alphabet above is useful.
-			if ( 'TRY' in this.flags ) {
-				this.alphabet += this.flags['TRY'];
-			}
-
-			// Plus any additional characters specifically defined as being allowed in words.
-			if ( 'WORDCHARS' in this.flags ) {
-				this.alphabet += this.flags['WORDCHARS'];
-			}
-
-			// Remove any duplicates.
-			let alphaArray: string[] = this.alphabet.split("");
-			alphaArray.sort();
-
-			let alphaHash: HashMap = {};
-			for ( let i = 0; i < alphaArray.length; i++ ) {
-				alphaHash[ alphaArray[i] ] = true;
-			}
-
-			this.alphabet = '';
-
-			for ( let i in alphaHash ) {
-				this.alphabet += i;
+			// A prefix's continuation flags allow suffixes that the stem itself is not flagged with.
+			if (entry.continuation && this.hasSuffixGrantedByPrefix(rest, entry)) {
+				return true;
 			}
 		}
 
-		/**
-		 * Returns a hash keyed by all of the strings that can be made by making a single edit to the word (or words in) `words`
-		 * The value of each entry is the number of unique ways that the resulting word can be made.
-		 *
-		 * @arg HashMap words A hash keyed by words (all with the value `true` to make lookups very quick).
-		 * @arg boolean known_only Whether this function should ignore strings that are not in the dictionary.
-		 */
-		function edits1(words: HashMap, known_only?: boolean): HashMap {
-			let rv: HashMap = {};
+		return false;
+	}
 
-			let i, j, _iilen, _len, _jlen, _edit;
+	/**
+	 * Whether the word (with a prefix already stripped) is a stem that takes the prefix,
+	 * plus a suffix named by the prefix's continuation flags.
+	 */
+	private hasSuffixGrantedByPrefix(word: string, prefix: AffixEntry): boolean {
+		const length = word.length;
+		let node: TrieNode | undefined = this.suffixTrie;
 
-			const alphabetLength = self.alphabet.length;
+		for (let stripped = 0; node !== undefined; stripped++) {
+			const groups = node.groups;
 
-			for (let word in words) {
-				for (i = 0, _len = word.length + 1; i < _len; i++) {
-					const s = [ word.substring(0, i), word.substring(i) ];
+			if (groups !== null) {
+				const base = stripped === 0 ? word : word.substring(0, length - stripped);
 
-					// Remove a letter.
-					if (s[1]) {
-						_edit = s[0] + s[1].substring(1);
+				for (let g = 0; g < groups.length; g++) {
+					const group = groups[g];
+					const stem = group.strip ? base + group.strip : base;
+					const flagSets = stem ? this.dictionaryTable.get(stem) : undefined;
 
-						if (!known_only || self._checkCaseVariants(_edit)) {
-							if (!(_edit in rv)) {
-								rv[_edit] = 1;
-							}
-							else {
-								rv[_edit] += 1;
-							}
-						}
+					if (!flagSets || !this.flagSetsHave(flagSets, prefix.flag)) {
+						continue;
 					}
 
-					// Transpose letters
-					// Eliminate transpositions of identical letters
-					if (s[1].length > 1 && s[1][1] !== s[1][0]) {
-						_edit = s[0] + s[1][1] + s[1][0] + s[1].substring(2);
+					for (let e = 0; e < group.entries.length; e++) {
+						const suffix = group.entries[e];
 
-						if (!known_only || self._checkCaseVariants(_edit)) {
-							if (!(_edit in rv)) {
-								rv[_edit] = 1;
-							}
-							else {
-								rv[_edit] += 1;
-							}
-						}
-					}
-
-					if (s[1]) {
-						// Replace a letter with another letter.
-
-						const lettercase = (s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
-
-						for (j = 0; j < alphabetLength; j++) {
-							let replacementLetter = self.alphabet[j];
-
-							// Set the case of the replacement letter to the same as the letter being replaced.
-							if ( 'uppercase' === lettercase ) {
-								replacementLetter = replacementLetter.toUpperCase();
-							}
-
-							// Eliminate replacement of a letter by itself
-							if (replacementLetter != s[1].substring(0,1)){
-								_edit = s[0] + replacementLetter + s[1].substring(1);
-
-								if (!known_only || self._checkCaseVariants(_edit)) {
-									if (!(_edit in rv)) {
-										rv[_edit] = 1;
-									}
-									else {
-										rv[_edit] += 1;
-									}
-								}
-							}
-						}
-					}
-
-					if (s[1]) {
-						// Add a letter between each letter.
-						for (j = 0; j < alphabetLength; j++) {
-							// If the letters on each side are capitalized, capitalize the replacement.
-							const lettercase = (s[0].substring(-1).toUpperCase() === s[0].substring(-1) && s[1].substring(0,1).toUpperCase() === s[1].substring(0,1)) ? 'uppercase' : 'lowercase';
-
-							let replacementLetter = self.alphabet[j];
-
-							if ( 'uppercase' === lettercase ) {
-								replacementLetter = replacementLetter.toUpperCase();
-							}
-
-							_edit = s[0] + replacementLetter + s[1];
-
-							if (!known_only || self._checkCaseVariants(_edit)) {
-								if (!(_edit in rv)) {
-									rv[_edit] = 1;
-								}
-								else {
-									rv[_edit] += 1;
-								}
-							}
+						if (this.flagsInclude(prefix.continuation, suffix.flag) && (suffix.condition === null || suffix.condition.test(stem))) {
+							return true;
 						}
 					}
 				}
 			}
 
-			return rv;
+			if (stripped === length || node.children === null) {
+				break;
+			}
+
+			node = node.children.get(word.charCodeAt(length - 1 - stripped));
 		}
 
-		function correct(word: string): string[] {
-			// Get the edit-distance-1 and edit-distance-2 forms of this word.
-			const ed1 = edits1({ [word] : true });
-			const ed2 = edits1(ed1, true);
+		return false;
+	}
 
-			// Sort the edits based on how many different ways they were created.
-			let weighted_corrections = ed2;
+	/** Whether the word matches one of the COMPOUNDRULE patterns. */
+	private isCompound(word: string): boolean {
+		if (!this.compoundStarts.has(word[0])) {
+			return false;
+		}
 
-			for (let ed1word in ed1) {
-				if (!self._checkCaseVariants(ed1word)) {
+		// Every character has to occur in some stem that can take part in a compound.
+		for (let i = 0; i < word.length; i++) {
+			const code = word.charCodeAt(i);
+
+			if (code < 128 ? this.compoundChars[code] === 0 : !this.compoundCharsHigh.has(code)) {
+				return false;
+			}
+		}
+
+		const minimum = this.flags.COMPOUNDMIN !== undefined ? parseInt(this.flags.COMPOUNDMIN, 10) || 1 : DEFAULT_COMPOUND_MIN;
+
+		if (word.length < minimum * 2) {
+			return false;
+		}
+
+		for (const rule of this.compiledCompoundRules) {
+			if (this.matchesCompoundRule(rule, word, minimum)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private matchesCompoundRule(rule: CompoundRule, word: string, minimum: number): boolean {
+		const items = rule.items;
+		const length = word.length;
+		const failed = new Set<number>();
+
+		const partHasFlag = (start: number, end: number, flag: string): boolean => {
+			const flagSets = this.dictionaryTable.get(word.substring(start, end));
+
+			if (!flagSets) {
+				return false;
+			}
+
+			for (const flags of flagSets) {
+				if (this.flagsInclude(flags, flag)) {
+					return true;
+				}
+			}
+
+			return false;
+		};
+
+		const match = (index: number, position: number, parts: number): boolean => {
+			if (index === items.length) {
+				return position === length && parts >= 2;
+			}
+
+			const key = ((index * (length + 1)) + position) * 2 + (parts >= 2 ? 1 : 0);
+
+			if (failed.has(key)) {
+				return false;
+			}
+
+			const item = items[index];
+
+			if (item.optional && match(index + 1, position, parts)) {
+				return true;
+			}
+
+			for (let end = position + minimum; end <= length; end++) {
+				if (partHasFlag(position, end, item.flag)) {
+					if (match(item.repeatable ? index : index + 1, end, parts + 1)) {
+						return true;
+					}
+				}
+			}
+
+			failed.add(key);
+
+			return false;
+		};
+
+		return match(0, 0, 0);
+	}
+
+	/* --------------------------------------------------------------------------------------------
+	 * Pruning index
+	 * ------------------------------------------------------------------------------------------ */
+
+	/**
+	 * Records the first and last two characters of every string the dictionary can accept,
+	 * in case-insensitive ASCII bitmaps, so that mayBeKnown() can reject most impossible
+	 * words without a hash lookup.
+	 *
+	 * An affix that strips text without adding any makes a word start or end in the middle
+	 * of a stem. For suffixes, what is left of each stem that takes one is recorded as well,
+	 * so the test on word endings always applies. For prefixes it is not, so such a prefix
+	 * disables the test on word beginnings.
+	 */
+	private buildPruneIndex(): void {
+		const startPairs = this.startPairs = new Uint8Array(2048);
+		const endPairs = this.endPairs = new Uint8Array(2048);
+		const startWild = this.startWild = new Uint8Array(128);
+		const endWild = this.endWild = new Uint8Array(128);
+		const table = this.dictionaryTable;
+		let pruneStart = true;
+
+		const wild = (bitmap: Uint8Array, text: string): void => {
+			const code = text.charCodeAt(0);
+
+			if (code < 128) {
+				bitmap[code] = 1;
+				bitmap[asciiUpper(code)] = 1;
+			}
+		};
+
+		// Affixes, indexed by the text they strip for the per-stem pass below.
+		const suffixGroupsByStrip = new Map<string, AffixGroup[]>();
+		const prefixGroupsByStrip = new Map<string, AffixGroup[]>();
+		const stripOnlyGroups: AffixGroup[] = [];
+
+		for (const group of this.suffixGroups) {
+			const add = group.add;
+
+			if (add.length >= 2) {
+				// A suffixed word ends with the added text.
+				addPair(endPairs, add.charCodeAt(add.length - 2), add.charCodeAt(add.length - 1));
+
+				if (group.strip && table.has(group.strip)) {
+					// The whole stem is stripped: the word is the added text.
+					addPair(startPairs, add.charCodeAt(0), add.charCodeAt(1));
+				}
+			} else if (add.length === 1) {
+				wild(endWild, add);
+			} else if (group.strip.length > 0) {
+				// Strips text without adding any: the word ends with the middle of a stem.
+				stripOnlyGroups.push(group);
+			}
+
+			if (add.length > 0) {
+				let groups = suffixGroupsByStrip.get(group.strip);
+
+				if (!groups) {
+					suffixGroupsByStrip.set(group.strip, groups = []);
+				}
+
+				groups.push(group);
+			}
+		}
+
+		for (const group of this.prefixGroups) {
+			const add = group.add;
+
+			if (add.length >= 2) {
+				// A prefixed word starts with the added text.
+				addPair(startPairs, add.charCodeAt(0), add.charCodeAt(1));
+			} else if (add.length === 1) {
+				wild(startWild, add);
+			} else if (group.strip.length > 0) {
+				// Strips text without adding any: the word starts with the middle of a stem.
+				pruneStart = false;
+			}
+
+			if (add.length > 0) {
+				let groups = prefixGroupsByStrip.get(group.strip);
+
+				if (!groups) {
+					prefixGroupsByStrip.set(group.strip, groups = []);
+				}
+
+				groups.push(group);
+			}
+		}
+
+		const takesGroup = (flagSets: readonly string[], group: AffixGroup, stem: string): boolean => {
+			for (const entry of group.entries) {
+				if (this.flagSetsHave(flagSets, entry.flag) && (entry.condition === null || entry.condition.test(stem))) {
+					return true;
+				}
+			}
+
+			return false;
+		};
+
+		// What is left of a stem after a strip-only suffix: alone it ends the word; after a
+		// prefix the word ends with the prefix's last character and its last character; before
+		// a suffix the word starts with its first character and the suffix.
+		const recordCore = (core: string): void => {
+			if (core.length >= 2) {
+				addPair(endPairs, core.charCodeAt(core.length - 2), core.charCodeAt(core.length - 1));
+
+				return;
+			}
+
+			for (const group of this.prefixGroups) {
+				if (group.add.length > 0) {
+					addPair(endPairs, group.add.charCodeAt(group.add.length - 1), core.charCodeAt(0));
+				}
+			}
+
+			for (const group of this.suffixGroups) {
+				if (group.add.length > 0) {
+					addPair(startPairs, core.charCodeAt(0), group.add.charCodeAt(0));
+				}
+			}
+		};
+
+		const firstChars = new Set<string>();
+		const lastChars = new Set<string>();
+
+		table.forEach((flagSets, stem) => {
+			const length = stem.length;
+
+			// Stems start and end the words they appear in.
+			if (length >= 2) {
+				addPair(startPairs, stem.charCodeAt(0), stem.charCodeAt(1));
+				addPair(endPairs, stem.charCodeAt(length - 2), stem.charCodeAt(length - 1));
+			}
+
+			if (!flagSets) {
+				return;
+			}
+
+			firstChars.add(stem[0]);
+			lastChars.add(stem[length - 1]);
+
+			for (let i = 0; i < stripOnlyGroups.length; i++) {
+				const group = stripOnlyGroups[i];
+
+				if (length > group.strip.length && stem.endsWith(group.strip) && takesGroup(flagSets, group, stem)) {
+					const core = stem.substring(0, length - group.strip.length);
+
+					recordCore(core);
+
+					// A second strip-only suffix (flags are not checked: a superset is fine).
+					for (const second of stripOnlyGroups) {
+						if (core.length > second.strip.length && core.endsWith(second.strip)) {
+							recordCore(core.substring(0, core.length - second.strip.length));
+						}
+					}
+				}
+			}
+		});
+
+		// Stems stripped down to one character before an affix is added: the word starts with
+		// that character and the suffix, or ends with the prefix and that character. Such a
+		// stem is a single character followed (or preceded) by exactly the stripped text.
+		for (const [strip, groups] of suffixGroupsByStrip) {
+			for (const first of firstChars) {
+				const stem = first + strip;
+				const flagSets = table.get(stem);
+
+				if (!flagSets) {
 					continue;
 				}
 
-				if (ed1word in weighted_corrections) {
-					weighted_corrections[ed1word] += ed1[ed1word];
-				}
-				else {
-					weighted_corrections[ed1word] = ed1[ed1word];
-				}
-			}
-
-			let i, _len;
-
-			let sorted_corrections = [];
-
-			for (i in weighted_corrections) {
-				if (weighted_corrections.hasOwnProperty(i)) {
-					if (self.hasFlag(i, "PRIORITYSUGGEST")) {
-						// We've defined a new affix rule called PRIORITYSUGGEST, indicating that
-						// if this word is in the suggestions list for a misspelled word, it should
-						// be given priority over other suggestions.
-						//
-						// Add a large number to its weight to push it to the top of the list.
-						// If multiple priority suggestions are in the list, they'll still be ranked
-						// against each other, but they'll all be above non-priority suggestions.
-						weighted_corrections[i] += 1000;
+				for (const group of groups) {
+					if (takesGroup(flagSets, group, stem)) {
+						addPair(startPairs, stem.charCodeAt(0), group.add.charCodeAt(0));
 					}
-
-					sorted_corrections.push([ i, weighted_corrections[i] ]);
 				}
 			}
-
-			function sorter(a: string[], b: string[]): -1 | 0 | 1 {
-				const a_val = a[1];
-				const b_val = b[1];
-				if (a_val < b_val) {
-					return -1;
-				} else if (a_val > b_val) {
-					return 1;
-				}
-				// @todo If a and b are equally weighted, add our own weight based on something like the key locations on this language's default keyboard.
-				return b[0].localeCompare(a[0]) as -1 | 0 | 1;
-			}
-
-			sorted_corrections.sort(sorter).reverse();
-
-			let rv = [];
-
-			let capitalization_scheme = "lowercase";
-
-			if (word.toUpperCase() === word) {
-				capitalization_scheme = "uppercase";
-			}
-			else if (word.substr(0, 1).toUpperCase() + word.substr(1).toLowerCase() === word) {
-				capitalization_scheme = "capitalized";
-			}
-
-			let working_limit = limit;
-
-			for (i = 0; i < Math.min(working_limit, sorted_corrections.length); i++) {
-				if ("uppercase" === capitalization_scheme) {
-					sorted_corrections[i][0] = sorted_corrections[i][0].toUpperCase();
-				}
-				else if ("capitalized" === capitalization_scheme) {
-					sorted_corrections[i][0] = sorted_corrections[i][0].substr(0, 1).toUpperCase() + sorted_corrections[i][0].substr(1);
-				}
-
-				if (!self.hasFlag(sorted_corrections[i][0], "NOSUGGEST") && rv.indexOf(sorted_corrections[i][0]) === -1) {
-					rv.push(sorted_corrections[i][0]);
-				}
-				else {
-					// If one of the corrections is not eligible as a suggestion , make sure we still return the right number of suggestions.
-					working_limit++;
-				}
-			}
-
-			return rv;
 		}
 
-		this.memoized[word] = {
-			'suggestions': outputConvert(correct(convertedWord)),
-			'limit': limit
+		for (const [strip, groups] of prefixGroupsByStrip) {
+			for (const last of lastChars) {
+				const stem = strip + last;
+				const flagSets = table.get(stem);
+
+				if (!flagSets) {
+					continue;
+				}
+
+				for (const group of groups) {
+					if (takesGroup(flagSets, group, stem)) {
+						addPair(endPairs, group.add.charCodeAt(group.add.length - 1), stem.charCodeAt(stem.length - 1));
+					}
+				}
+			}
+		}
+
+		// Compounds start with a stem that may begin a pattern and end with one that may end it.
+		for (const start of this.compoundStarts) {
+			wild(startWild, start);
+		}
+
+		for (const end of this.compoundSingleEnds) {
+			wild(endWild, end);
+		}
+
+		this.pruneStart = pruneStart;
+	}
+
+	/* --------------------------------------------------------------------------------------------
+	 * Suggestions
+	 * ------------------------------------------------------------------------------------------ */
+
+	/**
+	 * Suggests corrections for a misspelled word.
+	 *
+	 * Candidates are all strings within an edit distance of two from the word (deletions,
+	 * transpositions, replacements and insertions) that the dictionary accepts. They are
+	 * ranked by the number of different edit paths that produce them, which favors the
+	 * corrections closest to the misspelling.
+	 *
+	 * @param word  The misspelled word.
+	 * @param limit The maximum number of suggestions to return (default 5).
+	 */
+	suggest(word: string, limit?: number): string[] {
+		if (!this.loaded) {
+			throw NOT_LOADED_ERROR;
+		}
+
+		limit = limit || DEFAULT_SUGGESTION_LIMIT;
+
+		const cached = this.memoized[word];
+
+		if (cached !== undefined && (limit <= cached.limit || cached.suggestions.length < cached.limit)) {
+			return cached.suggestions.slice(0, limit);
+		}
+
+		if (this.check(word)) {
+			return [];
+		}
+
+		const converted = this.applyConversion(word, this.inputConversion);
+
+		if (!converted) {
+			return [];
+		}
+
+		const suggestions = this.suggestFromReplacements(converted) ?? this.suggestFromEdits(converted, limit);
+
+		this.memoized[word] = { suggestions, limit };
+
+		// The cached array stays private: callers get a copy, as they do on a cache hit.
+		return suggestions.slice();
+	}
+
+	/** Applies the output conversion table (OCONV) to suggestions, dropping duplicates. */
+	private convertOutput(suggestions: string[]): string[] {
+		if (!this.outputConversion) {
+			return suggestions;
+		}
+
+		return [...new Set(suggestions.map((suggestion) => this.applyConversion(suggestion, this.outputConversion)))];
+	}
+
+	/** The REP table: the first replacement that produces a known word is the suggestion. */
+	private suggestFromReplacements(word: string): string[] | null {
+		for (const [from, to] of this.replacementTable) {
+			const position = word.indexOf(from);
+
+			if (position === -1) {
+				continue;
+			}
+
+			const corrected = word.substring(0, position) + to + word.substring(position + from.length);
+
+			if (this.checkCaseVariants(corrected)) {
+				return this.convertOutput([corrected]);
+			}
+		}
+
+		return null;
+	}
+
+	private ensureAlphabet(): void {
+		if (this.alphabetLetters.length > 0 && this.alphabet) {
+			return;
+		}
+
+		let letters = DEFAULT_ALPHABET;
+
+		if (this.flags.TRY) {
+			letters += this.flags.TRY;
+		}
+
+		if (this.flags.WORDCHARS) {
+			letters += this.flags.WORDCHARS;
+		}
+
+		this.alphabetLetters = [...new Set(letters.split(""))].sort();
+		this.alphabetUpper = this.alphabetLetters.map((letter) => letter.toUpperCase());
+		this.alphabet = this.alphabetLetters.join("");
+	}
+
+	/**
+	 * Calls visit() for the strings one edit away from the word: every deletion,
+	 * transposition and replacement, and every insertion before one of its characters.
+	 * Nothing is appended after the last character. A string is visited once for each edit
+	 * that produces it, and those repeat visits are what weight the suggestions.
+	 *
+	 * A character that is its own uppercase form (an uppercase letter, but also a digit, an
+	 * apostrophe or any other caseless character) is only replaced by uppercase letters, and
+	 * only uppercase letters are inserted before it when everything before it is uppercase
+	 * in the same sense. Those letters come from uppercasing the whole alphabet, which
+	 * already holds both a-z and A-Z, so each uppercase replacement or insertion is visited
+	 * at least twice. Elsewhere every letter of the alphabet is tried once. Typo.js 1.x
+	 * weighted its suggestions the same way, and the order of suggest() results depends on it.
+	 */
+	private forEachEdit(word: string, visit: (edit: string) => void): void {
+		const letters = this.alphabetLetters;
+		const upperLetters = this.alphabetUpper;
+		const letterCount = letters.length;
+
+		for (let i = 0; i < word.length; i++) {
+			const head = word.substring(0, i);
+			const tail = word.substring(i);
+			const first = tail[0];
+			const rest = tail.substring(1);
+
+			// Deletion.
+			visit(head + rest);
+
+			// Transposition (of two different letters).
+			if (tail.length > 1 && tail[1] !== first) {
+				visit(head + tail[1] + first + tail.substring(2));
+			}
+
+			// Replacement.
+			const upper = first.toUpperCase() === first;
+			const replacements = upper ? upperLetters : letters;
+
+			for (let j = 0; j < letterCount; j++) {
+				if (replacements[j] !== first) {
+					visit(head + replacements[j] + rest);
+				}
+			}
+
+			// Insertion before this letter.
+			const insertions = (upper && head.toUpperCase() === head) ? upperLetters : letters;
+
+			for (let j = 0; j < letterCount; j++) {
+				visit(head + insertions[j] + tail);
+			}
+		}
+	}
+
+	private suggestFromEdits(word: string, limit: number): string[] {
+		this.ensureAlphabet();
+
+		// Candidate words are checked many times over; cache the results for this call.
+		const knownCache = new Map<string, boolean>();
+		const isKnown = (candidate: string): boolean => {
+			// mayBeKnown() only tests ASCII pairs of characters, and ignores their case when
+			// it does; any other pair passes untested. So failing it rules out every variant
+			// that checkCaseVariants() would try, which avoids hashing most candidates at all.
+			if (!this.mayBeKnown(candidate)) {
+				return false;
+			}
+
+			let known = knownCache.get(candidate);
+
+			if (known === undefined) {
+				known = this.checkCaseVariants(candidate);
+				knownCache.set(candidate, known);
+			}
+
+			return known;
 		};
 
-		return this.memoized[word]['suggestions'];
-	}
-};
-})();
+		// Strings one edit away, with the number of edits that produce each.
+		const oneEdit = new Map<string, number>();
 
-// Support for use as a node.js module.
-if (typeof module !== 'undefined') {
-	module.exports = Typo;
+		this.forEachEdit(word, (edit) => {
+			oneEdit.set(edit, (oneEdit.get(edit) ?? 0) + 1);
+		});
+
+		// Known strings two edits away, weighted by the number of edit paths that produce them.
+		const weights = new Map<string, number>();
+
+		for (const edit of oneEdit.keys()) {
+			this.forEachEdit(edit, (candidate) => {
+				if (isKnown(candidate)) {
+					weights.set(candidate, (weights.get(candidate) ?? 0) + 1);
+				}
+			});
+		}
+
+		for (const [edit, count] of oneEdit) {
+			if (isKnown(edit)) {
+				weights.set(edit, (weights.get(edit) ?? 0) + count);
+			}
+		}
+
+		const ranked: [string, number][] = [];
+
+		for (const [candidate, weight] of weights) {
+			// PRIORITYSUGGEST words rank above all other suggestions.
+			ranked.push([candidate, this.hasFlag(candidate, "PRIORITYSUGGEST") ? weight + PRIORITY_SUGGESTION_BONUS : weight]);
+		}
+
+		const collator = this.collator;
+
+		ranked.sort((a, b) => (b[1] - a[1]) || collator.compare(a[0], b[0]));
+
+		// Suggestions take the capitalization of the misspelling.
+		const scheme = word.toUpperCase() === word
+			? "uppercase"
+			: (word[0].toUpperCase() + word.substring(1).toLowerCase() === word) ? "capitalized" : "lowercase";
+
+		const suggestions: string[] = [];
+
+		for (let i = 0; i < ranked.length && suggestions.length < limit; i++) {
+			const candidate = ranked[i][0];
+			let suggestion = candidate;
+
+			if (scheme === "uppercase") {
+				suggestion = candidate.toUpperCase();
+			} else if (scheme === "capitalized") {
+				suggestion = candidate[0].toUpperCase() + candidate.substring(1);
+			}
+
+			if (this.hasFlag(candidate, "NOSUGGEST") || this.hasFlag(suggestion, "NOSUGGEST")) {
+				continue;
+			}
+
+			if (!suggestions.includes(suggestion)) {
+				suggestions.push(suggestion);
+			}
+		}
+
+		return this.convertOutput(suggestions);
+	}
 }
+
+export default Typo;

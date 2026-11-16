@@ -158,7 +158,8 @@ Typo = function (dictionary?: string, affData?: string|boolean, wordsData?: stri
 
 	this.flags = settings.flags || {};
 
-	this.memoized = {};
+	// Suggestions are cached by word, so the cache must not inherit keys like "hasOwnProperty" or "__proto__".
+	this.memoized = Object.create(null);
 
 	this.loaded = false;
 
@@ -1089,7 +1090,7 @@ Typo.prototype = {
 
 		limit = limit || 5;
 
-		if (this.memoized.hasOwnProperty(word)) {
+		if (word in this.memoized) {
 			const memoizedLimit = this.memoized[word]['limit'];
 
 			// Only return the cached list if it's big enough or if there weren't enough suggestions
@@ -1176,7 +1177,8 @@ Typo.prototype = {
 		 * @arg boolean known_only Whether this function should ignore strings that are not in the dictionary.
 		 */
 		function edits1(words: HashMap, known_only?: boolean): HashMap {
-			let rv: HashMap = {};
+			// No prototype, so edits like "constructor" or "toString" don't match inherited keys.
+			let rv: HashMap = Object.create(null);
 
 			let i, j, _iilen, _len, _jlen, _edit;
 
@@ -1300,7 +1302,7 @@ Typo.prototype = {
 			let sorted_corrections = [];
 
 			for (i in weighted_corrections) {
-				if (weighted_corrections.hasOwnProperty(i)) {
+				if (Object.prototype.hasOwnProperty.call(weighted_corrections, i)) {
 					if (self.hasFlag(i, "PRIORITYSUGGEST")) {
 						// We've defined a new affix rule called PRIORITYSUGGEST, indicating that
 						// if this word is in the suggestions list for a misspelled word, it should

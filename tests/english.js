@@ -239,6 +239,19 @@ function testDictionary(dict) {
 		equal(dict.check("Don\u2019t"), true);
 		equal(dict.checkExact("don\u2019t"), false);
 	});
+
+	test("Words that are Object.prototype property names", function () {
+		// "constructor" is one edit away, like "Constructor" is for "Constructr".
+		deepEqual(dict.suggest("constructr"), [ "construct", "constructor", "constructs", "constrict", "constrictor" ]);
+		deepEqual(dict.suggest("Constructr"), [ "Construct", "Constructor", "Constructs", "Constrict", "Constrictor" ]);
+
+		// Caching suggestions for these words must not break later calls.
+		deepEqual(dict.suggest("hasOwnProperty"), [ ]);
+		deepEqual(dict.suggest("hasOwnProperty"), [ ]);
+		deepEqual(dict.suggest("__proto__"), [ ]);
+		deepEqual(dict.suggest("__proto__"), [ ]);
+		deepEqual(dict.suggest("speling", 3), [ "spelling", "spieling", "spewing" ]);
+	});
 }
 
 addEventListener( "load", run, false );
